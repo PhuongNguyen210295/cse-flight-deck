@@ -991,20 +991,32 @@ function semSummary(courses){
     wp+=a.pct*c.cr;wc+=c.cr;gp+=GRADES[letterOf(a.pct)]*c.cr;gc+=c.cr}
   return {avg:wc?wp/wc:null,gpa:gc?gp/gc:null,graded,total:courses.length};
 }
+/* Grades covers only the classes you're taking now (status In progress), not the whole curriculum. */
+function earlierGraded(){
+  const list=state.plan.filter(c=>c.status!=='progress'&&gItems(c).length);
+  const by=new Map();
+  for(const c of list){const k=c.year+'|'+c.term;if(!by.has(k)) by.set(k,{year:c.year,term:c.term,courses:[]});by.get(k).courses.push(c)}
+  return [...by.values()].sort((a,b)=>a.year-b.year||TERMS.indexOf(a.term)-TERMS.indexOf(b.term));
+}
 function vGrades(){
-  const sems=gradeSems();
-  if(!sems.length) return `<section class="panel"><h2>Grades</h2><p class="muted">Add courses to your flight plan first.</p></section>`;
-  const key=gradeSemKey();ui.gSem=key;
-  const sem=sems.find(s=>s.year+'|'+s.term===key);
-  const courses=sem.courses.filter(c=>c.cr>0&&!isCoop(c));
+  const courses=state.plan.filter(c=>c.status==='progress'&&c.cr>0&&!isCoop(c));
+  const cur=currentSem();
+  const semName=hasTimeline()&&cur?realLabel(cur.year,cur.term):'';
+  const earlier=earlierGraded();
+  const earlierHtml=earlier.length?`<details class="card"><summary>Earlier courses with scores (${earlier.reduce((a,s)=>a+s.courses.length,0)})</summary>
+    <div style="display:grid;gap:12px;margin-top:10px">${earlier.map(s=>{const sm=semSummary(s.courses);
+      return `<div style="display:grid;gap:4px"><div class="label">${esc(hasTimeline()?realLabel(s.year,s.term):'Year '+s.year+' '+s.term)}${sm.avg!==null?` · average ${fmtPct(sm.avg)} (${letterOf(sm.avg)})`:''}</div>
+        <ul class="list">${s.courses.map(c=>{const a=courseAvg(gItems(c));return `<li class="li"><span class="code">${esc(c.code)}</span><span style="flex:1;min-width:0">${esc(c.title)}</span><span class="mono" style="font-size:.85rem">${a?fmtPct(a.pct)+' '+letterOf(a.pct):'—'}${c.grade?` · final ${esc(c.grade)}`:''}</span></li>`}).join('')}</ul></div>`}).join('')}</div></details>`:'';
+  if(!courses.length) return `<section class="panel">
+    <div><h2>Grades</h2><p class="muted" style="margin:2px 0 0">Scores for the classes you're taking now.</p></div>
+    <div class="card" style="display:grid;gap:10px;justify-items:start"><h3>You're not taking any classes right now</h3>
+      <p class="muted" style="margin:0">Add this semester's classes in <b>This semester</b> on the Overview, or set a course to <b>In progress</b> on the Flight plan. They'll show up here for you to enter exam scores.</p>
+      <button class="btn primary" data-act="g-overview">Go to This semester</button></div>
+    ${earlierHtml}</section>`;
   const sum=semSummary(courses);
   const sl=sum.avg===null?null:letterOf(sum.avg);
   return `<section class="panel">
-    <div class="row" style="justify-content:space-between">
-      <div><h2>Grades</h2><p class="muted" style="margin:2px 0 0">Enter each exam, quiz or assignment. Averages update as you type.</p></div>
-      <select class="btn" data-gs="sem" aria-label="Semester">${sems.map(s=>{const k=s.year+'|'+s.term;const has=s.courses.some(c=>gItems(c).length);
-        return `<option value="${esc(k)}"${k===key?' selected':''}>${hasTimeline()?realLabel(s.year,s.term)+' (Y'+s.year+' '+s.term+')':'Year '+s.year+' · '+s.term}${has?' ●':''}</option>`}).join('')}</select>
-    </div>
+    <div><h2>Grades${semName?' · '+esc(semName):''}</h2><p class="muted" style="margin:2px 0 0">Your ${courses.length} current class${courses.length===1?'':'es'}. Enter each exam, quiz or assignment; averages update as you type.</p></div>
     <div class="gauges">
       <div class="gauge"><span class="label">Semester average</span><span class="v">${sum.avg===null?'—':fmtPct(sum.avg)}</span><span class="muted" style="font-size:.8rem">${sum.avg===null?'Enter a score to start':'Credit-weighted across courses'}</span></div>
       <div class="gauge"><span class="label">Letter</span><span class="v">${sl||'—'}</span><span class="muted" style="font-size:.8rem">From the semester average</span></div>
@@ -1012,7 +1024,8 @@ function vGrades(){
       <div class="gauge"><span class="label">Courses with scores</span><span class="v">${sum.graded}<small> / ${sum.total}</small></span><div class="bar done"><span style="width:${pct(sum.graded,sum.total)}%"></span></div></div>
     </div>
     ${courses.map(gradeCard).join('')}
-    <p class="gnote">Letter cutoffs use the common scale (A 93+, A- 90+, B+ 87+, B 83+, …, F below 60). Your instructor's syllabus may differ.</p>
+    <p class="gnote">Letter cutoffs use the common scale (A 93+, A- 90+, B+ 87+, B 83+, …, F below 60). Your instructor's syllabus may differ. Saving a final grade marks the class Done and moves it to Earlier courses.</p>
+    ${earlierHtml}
   </section>`;
 }
 function gradeCard(c){
@@ -1808,6 +1821,7 @@ app.addEventListener('click',e=>{
   if(el.tagName==='INPUT') return; // checkboxes handled on change
   if(a.startsWith('s-')){schedClick(el);return}
   if(a.startsWith('m-')){mapClick(el);return}
+  if(a==='g-overview'){setTab('overview');return}
   if(a.startsWith('g-')){gradeClick(el);return}
   if(a.startsWith('sem-')){semClick(el);return}
   switch(a){
