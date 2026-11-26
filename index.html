@@ -408,7 +408,7 @@ const STARTER=[
 /* ---------- state ---------- */
 const uid=()=>Math.random().toString(36).slice(2,10);
 function starterPlan(){return STARTER.map(([y,t,c,ti,cr])=>({id:uid(),year:y,term:t,code:c,title:ti,cr,status:'planned',grade:''}))}
-function freshState(){return {v:1,starter:true,plan:starterPlan(),concepts:{},cards:{},career:{track:'swe',checks:{}},log:{},topic:null,schedule:{active:null,terms:{}},mapDest:null,mapPins:{}}}
+function freshState(){return {v:1,starter:true,plan:starterPlan(),concepts:{},cards:{},career:{track:null,checks:{}},log:{},topic:null,schedule:{active:null,terms:{}},mapDest:null,mapPins:{}}}
 function normClass(c){return {id:String(c.id||uid()),code:String(c.code||'').slice(0,20),title:String(c.title||'').slice(0,120),kind:String(c.kind||'').slice(0,30),
   days:Array.isArray(c.days)?[...new Set(c.days.map(Number).filter(d=>d>=0&&d<=6))].sort((a,b)=>a-b):[],
   start:/^\d{2}:\d{2}$/.test(c.start)?c.start:'',end:/^\d{2}:\d{2}$/.test(c.end)?c.end:'',room:String(c.room||'').slice(0,120),instructor:String(c.instructor||'').slice(0,80)}}
@@ -421,7 +421,9 @@ function normalize(s){
   const f=freshState(); if(!s||typeof s!=='object') return f;
   return {v:1,starter:!!s.starter,plan:Array.isArray(s.plan)?s.plan.filter(c=>c&&c.id).map(c=>({id:String(c.id),year:+c.year||1,term:TERMS.includes(c.term)?c.term:'Fall',code:String(c.code||''),title:String(c.title||''),cr:Math.max(0,+c.cr||0),status:STATUS.includes(c.status)?c.status:'planned',grade:GRADES[c.grade]!==undefined?c.grade:''})):f.plan,
     concepts:s.concepts&&typeof s.concepts==='object'?s.concepts:{},cards:s.cards&&typeof s.cards==='object'?s.cards:{},
-    career:{track:(s.career&&TRACKS.some(t=>t.id===s.career.track))?s.career.track:'swe',checks:(s.career&&s.career.checks)||{}},
+    /* The career path stays exactly as the user set it. Older saves defaulted to 'swe' without a choice, so that alone doesn't count as chosen. */
+    career:(()=>{const ok=s.career&&TRACKS.some(t=>t.id===s.career.track)&&(s.career.chosen||s.career.track!=='swe');
+      return {track:ok?s.career.track:null,chosen:!!ok,checks:(s.career&&s.career.checks)||{}}})(),
     log:s.log&&typeof s.log==='object'?s.log:{},topic:s.topic||null,schedule:normSchedule(s.schedule),
     mapDest:typeof s.mapDest==='string'?s.mapDest:null,
     mapPins:s.mapPins&&typeof s.mapPins==='object'?Object.fromEntries(Object.entries(s.mapPins).filter(([k,v])=>Array.isArray(v)&&v.length===2&&isFinite(v[0])&&isFinite(v[1]))):{}};
@@ -536,7 +538,7 @@ function vOverview(){
     <div class="card" style="display:grid;gap:14px;align-content:start">
       <h2>Career checkpoints · Year ${yr}</h2>
       ${ms.length?`<ul class="list">${ms.map(x=>`<li><label class="li" style="cursor:pointer"><input type="checkbox" data-act="check" data-k="${x.k}" style="margin-top:4px;accent-color:var(--done)"><span>${esc(x.m)}</span></label></li>`).join('')}</ul>`:`<p class="muted" style="margin:0">Every Year ${yr} checkpoint is done.</p>`}
-      <p class="muted" style="margin:0;font-size:.88rem">Aiming for <b style="color:var(--ink)">${esc(track.name)}</b>. Change it on the Career tab.</p>
+      <p class="muted" style="margin:0;font-size:.88rem">${track?`Your career path: <b style="color:var(--ink)">${esc(track.name)}</b>.`:`No career path chosen yet. <button class="linkbtn" data-act="goCareer">Choose one</button>`}</p>
     </div>
   </div></section>`;
 }
@@ -634,12 +636,32 @@ function pickCard(t){
 function checkList(items,prefix){return `<ul class="list">${items.map((m,i)=>{const k=prefix+i;return `<li><label class="li" style="cursor:pointer"><input type="checkbox" data-act="check" data-k="${k}"${state.career.checks[k]?' checked':''} style="margin-top:4px;accent-color:var(--done)"><span>${esc(m)}</span></label></li>`}).join('')}</ul>`}
 function countChecked(prefix,n){let c=0;for(let i=0;i<n;i++) if(state.career.checks[prefix+i]) c++;return c}
 function vCareer(){
-  const t=TRACKS.find(x=>x.id===state.career.track);
+  const t=TRACKS.find(x=>x.id===state.career.track)||null;
+  const pk='ip:', pd=countChecked(pk,PATTERNS.length);
+  const picking=!t||ui.trackPick;
+  const chooser=`<div class="card" style="display:grid;gap:12px">
+      <h2>${t?'Change your career path':'Where are you headed?'}</h2>
+      <p class="muted" style="margin:0">${t?`Currently <b style="color:var(--ink)">${esc(t.name)}</b>. Your ticks for each path are kept if you switch back later.`:'Pick the path you are aiming for. It stays fixed until you change it here.'}</p>
+      <div class="tracks">${TRACKS.map(x=>`<button class="track-btn" data-act="track" data-id="${x.id}" aria-pressed="${!!t&&x.id===t.id}">${esc(x.name)}</button>`).join('')}</div>
+      ${t?'<div><button class="btn small" data-act="trackCancel">Keep '+esc(t.name)+'</button></div>':''}
+    </div>`;
+  const fixed=t?`<div class="card row" style="justify-content:space-between">
+      <div style="display:grid;gap:2px"><span class="label">Your career path</span><b style="font-family:var(--f-display);font-size:1.35rem">${esc(t.name)}</b></div>
+      <button class="btn" data-act="trackChange">Change path</button></div>`:'';
+  const common=`
+    <div class="card"><h2 style="margin-bottom:6px">Four-year career timeline</h2><div class="timeline">${[1,2,3,4].map(y=>`<div class="tl-year"><div><div class="yr">Year ${y}</div><div class="mono muted" style="font-size:.8rem">${countChecked('m:'+y+':',MILESTONES[y].length)}/${MILESTONES[y].length}</div></div>${checkList(MILESTONES[y],'m:'+y+':')}</div>`).join('')}</div>
+      <p class="muted" style="margin:8px 0 0;font-size:.85rem">Speed School requires co-op rotations for this degree. Confirm the exact timing and steps with the co-op office.</p></div>
+    <div class="card" style="display:grid;gap:12px">
+      <div class="row" style="justify-content:space-between"><h2>Technical interview prep</h2><span class="mono muted">${pd}/${PATTERNS.length} patterns</span></div>
+      <div class="bar done"><span style="width:${pct(pd,PATTERNS.length)}%"></span></div>
+      <p class="muted" style="margin:0;font-size:.88rem">Tick a pattern once you've solved about five problems with it without hints.</p>
+      <ul class="checks">${PATTERNS.map((p,i)=>`<li><label><input type="checkbox" data-act="check" data-k="${pk+i}"${state.career.checks[pk+i]?' checked':''}><span>${esc(p)}</span></label></li>`).join('')}</ul>
+    </div>`;
+  if(!t) return `<section class="panel">${chooser}${common}</section>`;
   const topicRows=t.topics.map(id=>{const tp=TOPIC_BY_ID[id];const m=topicMastery(tp);const inPlan=state.plan.filter(c=>topicsFor(c).includes(id));
     return `<li class="li" style="align-items:center"><span style="flex:1;min-width:0">${esc(tp.name)}<br><span class="muted" style="font-size:.8rem">${inPlan.length?inPlan.map(c=>esc(c.code)).join(', '):'Not in your plan: look for an elective'}</span></span><span class="mono muted" style="font-size:.8rem;width:40px;text-align:right">${m}%</span></li>`}).join('');
-  const pk='ip:', pd=countChecked(pk,PATTERNS.length);
   return `<section class="panel">
-    <div style="display:grid;gap:10px"><h2>Where are you headed?</h2><div class="tracks">${TRACKS.map(x=>`<button class="track-btn" data-act="track" data-id="${x.id}" aria-pressed="${x.id===t.id}">${esc(x.name)}</button>`).join('')}</div></div>
+    ${picking?chooser:fixed}
     <div class="grid2">
       <div class="card" style="display:grid;gap:16px">
         <div class="row" style="justify-content:space-between"><h3>Skills for ${esc(t.name.toLowerCase())}</h3><span class="mono muted">${countChecked('sk:'+t.id+':',t.skills.length)}/${t.skills.length}</span></div>
@@ -654,14 +676,7 @@ function vCareer(){
         <p class="muted" style="margin:0;font-size:.85rem">Percentages are your mastery on the Study tab.</p>
       </div>
     </div>
-    <div class="card"><h2 style="margin-bottom:6px">Four-year career timeline</h2><div class="timeline">${[1,2,3,4].map(y=>`<div class="tl-year"><div><div class="yr">Year ${y}</div><div class="mono muted" style="font-size:.8rem">${countChecked('m:'+y+':',MILESTONES[y].length)}/${MILESTONES[y].length}</div></div>${checkList(MILESTONES[y],'m:'+y+':')}</div>`).join('')}</div>
-      <p class="muted" style="margin:8px 0 0;font-size:.85rem">Speed School requires co-op rotations for this degree. Confirm the exact timing and steps with the co-op office.</p></div>
-    <div class="card" style="display:grid;gap:12px">
-      <div class="row" style="justify-content:space-between"><h2>Technical interview prep</h2><span class="mono muted">${pd}/${PATTERNS.length} patterns</span></div>
-      <div class="bar done"><span style="width:${pct(pd,PATTERNS.length)}%"></span></div>
-      <p class="muted" style="margin:0;font-size:.88rem">Tick a pattern once you've solved about five problems with it without hints.</p>
-      <ul class="checks">${PATTERNS.map((p,i)=>`<li><label><input type="checkbox" data-act="check" data-k="${pk+i}"${state.career.checks[pk+i]?' checked':''}><span>${esc(p)}</span></label></li>`).join('')}</ul>
-    </div>
+    ${common}
   </section>`;
 }
 
@@ -1487,7 +1502,10 @@ app.addEventListener('click',e=>{
     case 'reveal':ui.reveal=true;render();break;
     case 'skip':{const t=TOPIC_BY_ID[ui.cardKey.split(':')[0]];ui.cardKey=pickCard(t);ui.reveal=false;render();break}
     case 'hit':case 'miss':{const k=ui.cardKey;state.cards[k]=a==='hit'?Math.min(4,(state.cards[k]||0)+1):0;persist();const t=TOPIC_BY_ID[k.split(':')[0]];ui.cardKey=pickCard(t);ui.reveal=false;render();break}
-    case 'track':state.career.track=id;persist();render();break;
+    case 'track':state.career.track=id;state.career.chosen=true;ui.trackPick=false;persist();render();break;
+    case 'trackChange':ui.trackPick=true;render();window.scrollTo(0,0);break;
+    case 'trackCancel':ui.trackPick=false;render();break;
+    case 'goCareer':setTab('career');break;
     case 'tstart':
       if(T.running){clearInterval(T.iv);T.running=false;tick();T.running=false}
       else{T.end=Date.now()+T.left*1000;T.running=true;T.iv=setInterval(tick,500);try{actx=actx||new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
