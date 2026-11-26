@@ -93,6 +93,21 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--line);
 .dir-list .mono{font-size:.75rem;color:var(--muted);margin-left:6px}
 details summary{cursor:pointer;font-weight:600}
 .linkbtn{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;font:inherit;cursor:pointer}
+/* this semester */
+.srows{display:grid;gap:0}
+.srow{display:grid;grid-template-columns:auto 84px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.srow:first-child{border-top:0}
+.srow .code{font-family:var(--f-mono);font-size:.82rem}
+.srow .title{min-width:0;font-size:.92rem}
+.srow.edit{grid-template-columns:90px minmax(0,1fr) 56px auto}
+.srow.edit input{width:100%;min-width:0;border:1px solid var(--line);border-radius:5px;background:var(--bg);padding:5px 7px}
+.srow.add input{background:var(--surface);border-style:dashed}
+@media (max-width:560px){
+  .srow{grid-template-columns:auto 72px minmax(0,1fr)}
+  .srow > :last-child{grid-column:1/-1;justify-self:end}
+  .srow.edit{grid-template-columns:90px minmax(0,1fr) 56px}
+  .srow.edit > :last-child{grid-column:1/-1;justify-self:stretch}
+}
 /* grades */
 .gcard{display:grid;gap:10px}
 .gavg{display:flex;align-items:baseline;gap:8px}
@@ -429,7 +444,13 @@ const STARTER=[
 /* ---------- state ---------- */
 const uid=()=>Math.random().toString(36).slice(2,10);
 function starterPlan(){return STARTER.map(([y,t,c,ti,cr])=>({id:uid(),year:y,term:t,code:c,title:ti,cr,status:'planned',grade:''}))}
-function freshState(){return {v:1,starter:true,plan:starterPlan(),concepts:{},cards:{},career:{track:null,checks:{}},log:{},topic:null,schedule:{active:null,terms:{}},mapDest:null,mapPins:{},grades:{}}}
+function freshState(){return {v:1,starter:true,plan:starterPlan(),concepts:{},cards:{},career:{track:null,checks:{}},log:{},topic:null,schedule:{active:null,terms:{}},mapDest:null,mapPins:{},grades:{},timeline:{startTerm:null,startYear:null,dates:{}}}}
+function normTimeline(t){
+  const out={startTerm:null,startYear:null,dates:{}};if(!t||typeof t!=='object') return out;
+  if(['Fall','Spring','Summer'].includes(t.startTerm)&&+t.startYear>=2000&&+t.startYear<=2100){out.startTerm=t.startTerm;out.startYear=+t.startYear}
+  if(t.dates&&typeof t.dates==='object') for(const [k,v] of Object.entries(t.dates)) if(/^(Fall|Spring|Summer) \d{4}$/.test(k)&&v&&/^\d{4}-\d{2}-\d{2}$/.test(v.start)&&/^\d{4}-\d{2}-\d{2}$/.test(v.end)&&v.start<=v.end) out.dates[k]={start:v.start,end:v.end};
+  return out;
+}
 function normGrades(g){
   const out={};if(!g||typeof g!=='object') return out;
   for(const [k,v] of Object.entries(g)){ if(!v||!Array.isArray(v.items)) continue;
@@ -456,6 +477,7 @@ function normalize(s){
     log:s.log&&typeof s.log==='object'?s.log:{},topic:s.topic||null,schedule:normSchedule(s.schedule),
     mapDest:typeof s.mapDest==='string'?s.mapDest:null,
     grades:normGrades(s.grades),
+    timeline:normTimeline(s.timeline),
     mapPins:s.mapPins&&typeof s.mapPins==='object'?Object.fromEntries(Object.entries(s.mapPins).filter(([k,v])=>Array.isArray(v)&&v.length===2&&isFinite(v[0])&&isFinite(v[1]))):{}};
 }
 const LS='cse-flight-deck-v1';
@@ -514,9 +536,46 @@ function stats(){
   for(const c of state.plan){total+=c.cr; if(c.status==='done'){done+=c.cr; if(c.grade&&c.cr>0){q+=GRADES[c.grade]*c.cr; gcr+=c.cr}} if(c.status==='progress') prog+=c.cr}
   return {total,done,prog,gpa:gcr?q/gcr:null};
 }
+/* ---- Your timeline: the term you started maps each plan leg to a real semester with editable dates ---- */
+const hasTimeline=()=>!!(state.timeline&&state.timeline.startYear);
+function advanceRegular(t,k){let x={...t};for(let i=0;i<k;i++) x=x.term==='Fall'?{term:'Spring',year:x.year+1}:{term:'Fall',year:x.year};return x}
+function realOf(year,term){
+  const tl=state.timeline;
+  const start=tl.startTerm==='Summer'?{term:'Fall',year:tl.startYear}:{term:tl.startTerm,year:tl.startYear};
+  if(term!=='Summer') return advanceRegular(start,(year-1)*2+(term==='Spring'?1:0));
+  const s=realOf(year,'Spring');
+  return {term:'Summer',year:s.term==='Spring'?s.year:s.year+1};
+}
+const realLabel=(year,term)=>{if(!hasTimeline()) return '';const r=realOf(year,term);return r.term+' '+r.year};
+function defaultDates(term,year){
+  const p=n=>String(n).padStart(2,'0');
+  const r={Spring:[[1,12],[5,8]],Summer:[[5,18],[8,7]],Fall:[[8,24],[12,11]]}[term];
+  return {start:`${year}-${p(r[0][0])}-${p(r[0][1])}`,end:`${year}-${p(r[1][0])}-${p(r[1][1])}`};
+}
+function termDates(term,year){const o=state.timeline&&state.timeline.dates&&state.timeline.dates[term+' '+year];return o&&o.start&&o.end?o:defaultDates(term,year)}
+function legDates(year,term){const r=realOf(year,term);return termDates(r.term,r.year)}
+/* The leg you are in today (or the next one, during a break or before you start) */
+function currentLegId(){
+  const maxY=Math.max(4,...state.plan.map(c=>c.year)),t=today();
+  const legs=[];for(let y=1;y<=maxY;y++) for(const term of TERMS){const d=legDates(y,term);legs.push({year:y,term,...d})}
+  legs.sort((a,b)=>a.start.localeCompare(b.start));
+  const inside=legs.find(l=>l.start<=t&&t<=l.end);if(inside) return {year:inside.year,term:inside.term,inSession:true};
+  const next=legs.find(l=>l.start>t);if(next) return {year:next.year,term:next.term,inSession:false};
+  const last=legs[legs.length-1];return {year:last.year,term:last.term,inSession:false};
+}
 function currentSem(){
   const sems=semesters();
+  if(hasTimeline()){const id=currentLegId();return sems.find(s=>s.year===id.year&&s.term===id.term)||{year:id.year,term:id.term,courses:[]}}
   return sems.find(s=>s.courses.some(c=>c.status==='progress'))||sems.find(s=>s.courses.some(c=>c.status!=='done'))||sems[sems.length-1]||null;
+}
+const fmtDay=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,{month:'short',day:'numeric'})};
+function weekInfo(d){
+  const ms=s=>{const [y,m,dd]=s.split('-').map(Number);return new Date(y,m-1,dd).getTime()};
+  const total=Math.max(1,Math.ceil((ms(d.end)-ms(d.start)+86400000)/604800000));
+  const now=ms(today());
+  if(now<ms(d.start)) return {state:'before',days:Math.round((ms(d.start)-now)/86400000),total};
+  if(now>ms(d.end)) return {state:'after',total};
+  return {state:'in',week:Math.floor((now-ms(d.start))/604800000)+1,total};
 }
 function topicsFor(c){return TOPICS.filter(t=>t.re.test(c.code+' '+c.title)).map(t=>t.id)}
 function topicMastery(t){
@@ -561,6 +620,87 @@ function completedList(groups){
     return `<li><label class="li" style="cursor:pointer"><input type="checkbox" data-act="check" data-k="${x.k}" checked style="margin-top:4px;accent-color:var(--done)" title="Untick to move it back"><span style="flex:1;min-width:0">${esc(x.label)}</span>${dt?`<span class="mono muted" style="font-size:.75rem;white-space:nowrap">${esc(dt)}</span>`:''}</label></li>`}).join('')}</ul></div>`).join('');
 }
 
+/* ---- "This semester": add / edit / delete the courses of the semester you're in ---- */
+function timelineForm(){
+  const tl=hasTimeline(),g=guessTerm();
+  const term=tl?state.timeline.startTerm:g.term,year=tl?state.timeline.startYear:g.year;
+  return `<div class="card" style="display:grid;gap:10px">
+    <h2>${tl?'Change when you started':'When does your first semester start?'}</h2>
+    <p class="muted" style="margin:0">Pick the term you started at UofL, or will start. Year 1 Fall in your flight plan becomes that term, and every later semester follows from it. You can adjust each semester's start and end dates afterwards.</p>
+    <div class="row" style="align-items:end">
+      <div class="field"><label class="label" for="tl-term">First term</label><select id="tl-term">${['Fall','Spring','Summer'].map(x=>`<option${x===term?' selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="field"><label class="label" for="tl-year">Year</label><input id="tl-year" type="number" min="2015" max="2040" value="${year}" style="width:100px"></div>
+      <button class="btn primary" data-act="sem-tlsave">Save</button>${tl?'<button class="btn" data-act="sem-tlcancel">Cancel</button>':''}
+    </div></div>`;
+}
+function semCard(){
+  if(!hasTimeline()||ui.tlEdit) return timelineForm();
+  const id=currentLegId(),r=realOf(id.year,id.term),d=termDates(r.term,r.year),w=weekInfo(d);
+  const courses=state.plan.filter(c=>c.year===id.year&&c.term===id.term);
+  const cr=courses.reduce((a,c)=>a+c.cr,0);
+  const when=w.state==='in'?`Week ${w.week} of ${w.total}`:w.state==='before'?`Starts in ${w.days} day${w.days===1?'':'s'}`:'Ended';
+  const row=c=>{
+    if(ui.semEdit===c.id) return `<div class="srow edit"><input id="se-code" value="${esc(c.code)}" aria-label="Course code"><input id="se-title" value="${esc(c.title)}" aria-label="Course title"><input id="se-cr" value="${c.cr}" inputmode="numeric" aria-label="Credits">
+      <span class="row" style="gap:4px"><button class="btn small primary" data-act="sem-save" data-id="${c.id}">Save</button><button class="btn small" data-act="sem-cancel">Cancel</button></span></div>`;
+    if(ui.semDel===c.id) return `<div class="srow"><span></span><span class="code">${esc(c.code)}</span><span class="title">Delete ${esc(c.title||c.code)} from this semester?</span><span class="row" style="gap:4px"><button class="btn small primary" data-act="sem-delyes" data-id="${c.id}">Delete</button><button class="btn small" data-act="sem-delno">Keep</button></span></div>`;
+    return `<div class="srow"><button class="status-btn" data-act="cycle" data-id="${c.id}" title="Tap to change status"><span class="chip ${c.status}">${STATUS_LABEL[c.status]}</span></button>
+      <span class="code">${esc(c.code)}</span><span class="title">${esc(c.title)} <span class="mono muted" style="font-size:.78rem">· ${c.cr} cr${c.grade?' · '+esc(c.grade):''}</span></span>
+      <span class="row" style="gap:2px"><button class="btn ghost small" data-act="sem-edit" data-id="${c.id}">Edit</button><button class="btn ghost small" data-act="sem-del" data-id="${c.id}" aria-label="Delete ${esc(c.code)}">✕</button></span></div>`;
+  };
+  return `<div class="card" style="display:grid;gap:12px">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div><span class="label">${id.inSession?'This semester':'Next semester'}</span><h2>${r.term} ${r.year}</h2><span class="muted" style="font-size:.85rem">Year ${id.year} ${id.term} in your flight plan</span></div>
+      <div style="text-align:right"><span class="nx-when">${when}</span><br><span class="mono muted" style="font-size:.8rem">${fmtDay(d.start)} – ${fmtDay(d.end)}</span></div>
+    </div>
+    ${w.state==='in'?`<div class="bar"><span style="width:${pct(w.week,w.total)}%"></span></div>`:''}
+    ${ui.datesEdit?`<div class="row" style="align-items:end;background:var(--sunk);padding:10px;border-radius:6px">
+      <div class="field"><label class="label" for="sd-start">Starts</label><input id="sd-start" type="date" value="${d.start}"></div>
+      <div class="field"><label class="label" for="sd-end">Ends</label><input id="sd-end" type="date" value="${d.end}"></div>
+      <button class="btn small primary" data-act="sem-datessave">Save dates</button><button class="btn small" data-act="sem-datesreset">Use default</button><button class="btn small ghost" data-act="sem-datescancel">Cancel</button>
+      ${ui.datesErr?`<p class="err" style="width:100%">${esc(ui.datesErr)}</p>`:''}</div>`:''}
+    <div class="srows">${courses.length?courses.map(row).join(''):'<p class="muted" style="margin:0">No courses in this semester yet. Add them below.</p>'}
+      <div class="srow edit add"><input id="sa-code" placeholder="CSE 310" aria-label="New course code"><input id="sa-title" placeholder="Course title" aria-label="New course title"><input id="sa-cr" value="3" inputmode="numeric" aria-label="New course credits"><button class="btn small primary" data-act="sem-add">+ Add course</button></div>
+      ${ui.semErr?`<p class="err">${esc(ui.semErr)}</p>`:''}
+    </div>
+    <div class="row" style="justify-content:space-between"><span class="mono muted" style="font-size:.85rem">${courses.length} course${courses.length===1?'':'s'} · ${cr} credits</span>
+      <span class="row" style="gap:4px">${ui.datesEdit?'':'<button class="btn small" data-act="sem-dates">Edit semester dates</button>'}<button class="btn small ghost" data-act="sem-tledit">Change start term</button></span></div>
+  </div>`;
+}
+function semClick(el){
+  const a=el.dataset.act,id=el.dataset.id;ui.semErr='';
+  const v=x=>{const e=document.getElementById(x);return e?e.value.trim():''};
+  switch(a){
+    case 'sem-tlsave':{const term=v('tl-term'),year=+v('tl-year');if(!(year>=2015&&year<=2040))return;state.timeline.startTerm=term;state.timeline.startYear=year;ui.tlEdit=false;persist();break}
+    case 'sem-tledit':ui.tlEdit=true;break;
+    case 'sem-tlcancel':ui.tlEdit=false;break;
+    case 'sem-dates':ui.datesEdit=true;ui.datesErr='';break;
+    case 'sem-datescancel':ui.datesEdit=false;ui.datesErr='';break;
+    case 'sem-datessave':case 'sem-datesreset':{
+      const cid=currentLegId(),r=realOf(cid.year,cid.term),k=r.term+' '+r.year;
+      if(a==='sem-datesreset') delete state.timeline.dates[k];
+      else{const s=v('sd-start'),e=v('sd-end');if(!s||!e||s>e){ui.datesErr='Pick a start date on or before the end date.';break}state.timeline.dates[k]={start:s,end:e}}
+      ui.datesEdit=false;ui.datesErr='';persist();break;}
+    case 'sem-edit':ui.semEdit=id;ui.semDel=null;break;
+    case 'sem-cancel':ui.semEdit=null;break;
+    case 'sem-save':{const c=state.plan.find(x=>x.id===id);if(!c)break;
+      const code=v('se-code').toUpperCase().slice(0,20),title=v('se-title').slice(0,120),cr=Math.max(0,Math.min(20,Math.round(+v('se-cr')||0)));
+      if(!code){ui.semErr='Enter a course code.';break}
+      const oldK=gkey(c);c.code=code;c.title=title||code;c.cr=cr;const newK=gkey(c);
+      if(oldK!==newK&&state.grades[oldK]&&!state.grades[newK]){state.grades[newK]=state.grades[oldK];delete state.grades[oldK]}
+      ui.semEdit=null;persist();break;}
+    case 'sem-del':ui.semDel=id;ui.semEdit=null;break;
+    case 'sem-delno':ui.semDel=null;break;
+    case 'sem-delyes':state.plan=state.plan.filter(x=>x.id!==id);ui.semDel=null;persist();break;
+    case 'sem-add':{const cid=currentLegId();const code=v('sa-code').toUpperCase().slice(0,20);
+      if(!code){ui.semErr='Enter a course code, such as CSE 310.';break}
+      const cr=Math.max(0,Math.min(20,Math.round(+v('sa-cr')||0)));
+      state.plan.push({id:uid(),year:cid.year,term:cid.term,code,title:v('sa-title').slice(0,120)||code,cr,status:cid.inSession?'progress':'planned',grade:''});
+      persist();break;}
+    default:return;
+  }
+  render();
+}
+
 /* ---------- views ---------- */
 function vOverview(){
   const s=stats(), cur=currentSem(), sems=semesters();
@@ -575,16 +715,17 @@ function vOverview(){
   ${nextClassCard()}
   ${!hasSched?`<div class="card row" style="justify-content:space-between"><span><b>Add your class schedule</b> <span class="muted">to see your next class and room here.</span></span><button class="btn small" data-act="goSched">Set up schedule</button></div>`:''}
   ${state.starter?`<div class="note"><b>Starter plan loaded.</b> The UofL catalog was unreachable when this app was built, so the plan uses placeholder codes like <span class="mono">CSE 3xx</span>. Open <b>Flight plan → Import from catalog</b> and paste the flight plan text from the <a href="https://catalog.louisville.edu/undergraduate/majors/computer-engineering-science-bs/#flightplantext" target="_blank" rel="noopener">catalog page</a> to load your exact courses.</div>`:''}
+  ${semCard()}
   <div class="gauges">
     <div class="gauge"><span class="label">Credits complete</span><span class="v">${s.done}<small> / ${s.total}</small></span><div class="bar done"><span style="width:${pct(s.done,s.total)}%"></span></div></div>
     <div class="gauge"><span class="label">GPA</span><span class="v">${s.gpa===null?'—':s.gpa.toFixed(2)}</span><span class="muted" style="font-size:.8rem">${s.gpa===null?'Add grades to finished courses':'From graded, finished courses'}</span></div>
-    <div class="gauge"><span class="label">Current leg</span><span class="v" style="font-size:1.4rem">${cur?('Year '+cur.year+' · '+cur.term):'—'}</span><span class="muted" style="font-size:.8rem">${s.prog} credits in progress</span></div>
+    <div class="gauge"><span class="label">Current leg</span><span class="v" style="font-size:1.4rem">${cur?(hasTimeline()?realLabel(cur.year,cur.term):'Year '+cur.year+' · '+cur.term):'—'}</span><span class="muted" style="font-size:.8rem">${cur&&hasTimeline()?'Year '+cur.year+' '+cur.term+' · ':''}${s.prog} credits in progress</span></div>
     <div class="gauge"><span class="label">Study this week</span><span class="v">${Math.round(weekMinutes()/6)/10}<small> h</small></span><span class="muted" style="font-size:.8rem">${streak()} day streak</span></div>
   </div>
   <div class="card"><div class="row" style="justify-content:space-between;margin-bottom:8px"><h2>Route to graduation</h2><span class="label">${sems.length} legs</span></div>
     <div class="route-scroll"><div class="route">${sems.map((sm,i)=>{const cr=sm.courses.reduce((a,c)=>a+c.cr,0);const dn=sm.courses.reduce((a,c)=>a+(c.status==='done'?c.cr:0),0);const coop=sm.courses.every(isCoop);const allDone=sm.courses.every(c=>c.status==='done');
       const cls=(allDone?'past':'')+(i===curIdx&&!allDone?' now':'')+(coop?' coop':'');
-      return `<div class="wp ${cls}"><div class="dot">${coop?'CO':pct(dn,cr)+'%'}</div><div class="t">Y${sm.year}<br>${sm.term}</div></div>`}).join('')}</div></div>
+      return `<div class="wp ${cls}"><div class="dot">${coop?'CO':pct(dn,cr)+'%'}</div><div class="t">${hasTimeline()?(()=>{const r=realOf(sm.year,sm.term);return r.term+'<br>'+r.year})():'Y'+sm.year+'<br>'+sm.term}</div></div>`}).join('')}</div></div>
   </div>
   <div class="grid2">
     <div class="card" style="display:grid;gap:14px">
@@ -624,7 +765,7 @@ function vPlan(){
     const ycr=state.plan.filter(c=>c.year===y).reduce((a,c)=>a+c.cr,0);
     years+=`<div class="year"><div class="year-head"><h3>Year ${y}</h3><span class="mono muted" style="font-size:.8rem">${ycr} credits</span></div><div class="terms">${terms.map(t=>{
       const cs=state.plan.filter(c=>c.year===y&&c.term===t);const cr=cs.reduce((a,c)=>a+c.cr,0);
-      return `<div class="term"><div class="term-head"><b>${t}</b><span class="mono">${cr} cr</span></div>${cs.length?cs.map(courseRow).join(''):'<div class="empty-term">No courses this term.</div>'}
+      return `<div class="term"><div class="term-head"><b>${t}${hasTimeline()?` <span class="mono muted" style="font-size:.75rem;font-weight:400">${realLabel(y,t)}</span>`:''}</b><span class="mono">${cr} cr</span></div>${cs.length?cs.map(courseRow).join(''):'<div class="empty-term">No courses this term.</div>'}
       ${ui.edit?`<div style="padding:8px 14px"><button class="btn small" data-act="add" data-y="${y}" data-t="${t}">+ Add course</button></div>`:''}</div>`}).join('')}</div></div>`;
   }
   const prev=ui.importPreview;
@@ -841,7 +982,7 @@ function gradeSemKey(){
   if(ui.gSem&&sems.some(s=>s.year+'|'+s.term===ui.gSem)) return ui.gSem;
   const withData=sems.filter(s=>s.courses.some(c=>gItems(c).length));
   const cur=currentSem();
-  const pick=(cur&&sems.find(s=>s===cur))||withData[withData.length-1]||sems[0];
+  const pick=(cur&&sems.find(s=>s.year===cur.year&&s.term===cur.term))||withData[withData.length-1]||sems[0];
   return pick.year+'|'+pick.term;
 }
 function semSummary(courses){
@@ -862,7 +1003,7 @@ function vGrades(){
     <div class="row" style="justify-content:space-between">
       <div><h2>Grades</h2><p class="muted" style="margin:2px 0 0">Enter each exam, quiz or assignment. Averages update as you type.</p></div>
       <select class="btn" data-gs="sem" aria-label="Semester">${sems.map(s=>{const k=s.year+'|'+s.term;const has=s.courses.some(c=>gItems(c).length);
-        return `<option value="${esc(k)}"${k===key?' selected':''}>Year ${s.year} · ${s.term}${has?' ●':''}</option>`}).join('')}</select>
+        return `<option value="${esc(k)}"${k===key?' selected':''}>${hasTimeline()?realLabel(s.year,s.term)+' (Y'+s.year+' '+s.term+')':'Year '+s.year+' · '+s.term}${has?' ●':''}</option>`}).join('')}</select>
     </div>
     <div class="gauges">
       <div class="gauge"><span class="label">Semester average</span><span class="v">${sum.avg===null?'—':fmtPct(sum.avg)}</span><span class="muted" style="font-size:.8rem">${sum.avg===null?'Enter a score to start':'Credit-weighted across courses'}</span></div>
@@ -1089,6 +1230,11 @@ function roomLine(c){const b=!IS_ARTIFACT&&matchBuilding(c.room);const u=mapUrl(
   return `<div class="nx-room">${c.room?`<span>📍 ${esc(c.room)}</span>`:'<span class="muted">No room listed</span>'}${b?`<button class="btn small primary" data-act="m-guide" data-b="${b.id}">Guide me there</button>`:(u?`<a href="${u}" target="_blank" rel="noopener">Open in Maps</a>`:'')}${c.instructor?`<span class="muted">${esc(c.instructor)}</span>`:''}</div>`}
 function nextClassCard(){
   const t=state.schedule.terms[state.schedule.active];if(!t||!t.classes.length) return '';
+  if(hasTimeline()){
+    const [yy,tt]=state.schedule.active.split('-');const sd=termDates(tt,+yy),td=today();
+    if(td<sd.start) return `<div class="card row" style="justify-content:space-between"><span><span class="label">Next class</span><br><b>${esc(t.label)} classes start ${fmtDay(sd.start)}</b></span><span class="muted mono" style="font-size:.85rem">${weekInfo(sd).days} days to go</span></div>`;
+    if(td>sd.end) return '';
+  }
   const n=nextUp(t.classes);if(!n) return '';
   const c=n.c;
   const when=n.live?`Now · ends ${fmt12(c.end)}`:n.off===0?`Today ${fmt12(c.start)} · in ${dur(toMin(c.start)-n.mins)}`:n.off===1?`Tomorrow ${fmt12(c.start)}`:`${DAYFULL[n.day]} ${fmt12(c.start)}`;
@@ -1663,6 +1809,7 @@ app.addEventListener('click',e=>{
   if(a.startsWith('s-')){schedClick(el);return}
   if(a.startsWith('m-')){mapClick(el);return}
   if(a.startsWith('g-')){gradeClick(el);return}
+  if(a.startsWith('sem-')){semClick(el);return}
   switch(a){
     case 'cycle':{const c=byId(id);c.status=STATUS[(STATUS.indexOf(c.status)+1)%3];if(c.status!=='done')c.grade='';persist();render();break}
     case 'toggleEdit':ui.edit=!ui.edit;render();break;
