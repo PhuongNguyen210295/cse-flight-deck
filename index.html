@@ -534,6 +534,33 @@ function addMinutes(min,course){
 }
 const pct=(a,b)=>b?Math.round(a/b*100):0;
 
+/* Everything ticked in the career section. A tick stores the date it was made (older ticks stored only true). */
+function doneDate(v){
+  if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v)) return '';
+  const [y,m,d]=v.split('-').map(Number);
+  return new Date(y,m-1,d).toLocaleDateString(undefined,{month:'short',day:'numeric',year:y===new Date().getFullYear()?undefined:'numeric'});
+}
+function completedGroups(){
+  const ch=state.career.checks,groups=[];
+  for(const y of [1,2,3,4]){
+    const items=MILESTONES[y].map((m,i)=>({label:m,k:'m:'+y+':'+i})).filter(x=>ch[x.k]);
+    if(items.length) groups.push({title:'Year '+y+' checkpoints',items});
+  }
+  for(const t of TRACKS){
+    const sk=t.skills.map((m,i)=>({label:m,k:'sk:'+t.id+':'+i})).filter(x=>ch[x.k]);
+    const pj=t.projects.map((m,i)=>({label:m,k:'pj:'+t.id+':'+i})).filter(x=>ch[x.k]);
+    if(sk.length) groups.push({title:'Skills · '+t.name,items:sk});
+    if(pj.length) groups.push({title:'Projects · '+t.name,items:pj});
+  }
+  const ip=PATTERNS.map((m,i)=>({label:m,k:'ip:'+i})).filter(x=>ch[x.k]);
+  if(ip.length) groups.push({title:'Interview prep',items:ip});
+  return groups;
+}
+function completedList(groups){
+  return groups.map(g=>`<div style="display:grid;gap:4px"><div class="label">${esc(g.title)} · ${g.items.length}</div><ul class="list">${g.items.map(x=>{const dt=doneDate(state.career.checks[x.k]);
+    return `<li><label class="li" style="cursor:pointer"><input type="checkbox" data-act="check" data-k="${x.k}" checked style="margin-top:4px;accent-color:var(--done)" title="Untick to move it back"><span style="flex:1;min-width:0">${esc(x.label)}</span>${dt?`<span class="mono muted" style="font-size:.75rem;white-space:nowrap">${esc(dt)}</span>`:''}</label></li>`}).join('')}</ul></div>`).join('');
+}
+
 /* ---------- views ---------- */
 function vOverview(){
   const s=stats(), cur=currentSem(), sems=semesters();
@@ -566,8 +593,11 @@ function vOverview(){
       ${studyTopics.length?`<div><div class="label" style="margin-bottom:6px">Weakest topics in current courses</div><div class="topics">${studyTopics.map(t=>{const m=topicMastery(t);return `<button class="topic-btn" data-act="goTopic" data-id="${t.id}"><span>${esc(t.name)}</span><span class="pct">${m}%</span><span class="bar"><span style="width:${m}%"></span></span></button>`}).join('')}</div></div>`:''}
     </div>
     <div class="card" style="display:grid;gap:14px;align-content:start">
-      <h2>Career checkpoints · Year ${yr}</h2>
+      <div class="row" style="justify-content:space-between"><h2>Career checkpoints · Year ${yr}</h2><span class="mono muted">${countChecked('m:'+yr+':',MILESTONES[yr].length)}/${MILESTONES[yr].length}</span></div>
+      <div class="bar done"><span style="width:${pct(countChecked('m:'+yr+':',MILESTONES[yr].length),MILESTONES[yr].length)}%"></span></div>
       ${ms.length?`<ul class="list">${ms.map(x=>`<li><label class="li" style="cursor:pointer"><input type="checkbox" data-act="check" data-k="${x.k}" style="margin-top:4px;accent-color:var(--done)"><span>${esc(x.m)}</span></label></li>`).join('')}</ul>`:`<p class="muted" style="margin:0">Every Year ${yr} checkpoint is done.</p>`}
+      ${(()=>{const g=completedGroups();const n=g.reduce((a,x)=>a+x.items.length,0);
+        return n?`<details data-dt="ovDone"${ui.ovDone?' open':''}><summary>✓ Completed (${n})</summary><div style="display:grid;gap:12px;margin-top:10px">${completedList(g)}</div></details>`:''})()}
       <p class="muted" style="margin:0;font-size:.88rem">${track?`Your career path: <b style="color:var(--ink)">${esc(track.name)}</b>.`:`No career path chosen yet. <button class="linkbtn" data-act="goCareer">Choose one</button>`}</p>
     </div>
   </div></section>`;
@@ -678,7 +708,13 @@ function vCareer(){
   const fixed=t?`<div class="card row" style="justify-content:space-between">
       <div style="display:grid;gap:2px"><span class="label">Your career path</span><b style="font-family:var(--f-display);font-size:1.35rem">${esc(t.name)}</b></div>
       <button class="btn" data-act="trackChange">Change path</button></div>`:'';
+  const cg=completedGroups(),cn=cg.reduce((a,x)=>a+x.items.length,0);
   const common=`
+    <div class="card" style="display:grid;gap:12px">
+      <div class="row" style="justify-content:space-between"><h2>✓ Completed</h2><span class="mono muted">${cn} item${cn===1?'':'s'}</span></div>
+      ${cn?completedList(cg):'<p class="muted" style="margin:0">Nothing ticked yet. Items you tick in the timeline, skills, projects or interview prep collect here.</p>'}
+      ${cn?'<p class="gnote">Untick an item to move it back to your to-do list. Dates show when you ticked it.</p>':''}
+    </div>
     <div class="card"><h2 style="margin-bottom:6px">Four-year career timeline</h2><div class="timeline">${[1,2,3,4].map(y=>`<div class="tl-year"><div><div class="yr">Year ${y}</div><div class="mono muted" style="font-size:.8rem">${countChecked('m:'+y+':',MILESTONES[y].length)}/${MILESTONES[y].length}</div></div>${checkList(MILESTONES[y],'m:'+y+':')}</div>`).join('')}</div>
       <p class="muted" style="margin:8px 0 0;font-size:.85rem">Speed School requires co-op rotations for this degree. Confirm the exact timing and steps with the co-op office.</p></div>
     <div class="card" style="display:grid;gap:12px">
@@ -1672,7 +1708,7 @@ app.addEventListener('change',e=>{
   if(el.dataset.gs==='sem'){ui.gSem=el.value;render();return}
   if(el.dataset.sf==='term'){state.schedule.active=el.value;ui.sched.confirmDel=false;ui.sched.form=null;persist();render();return}
   if(el.dataset.sf==='target'){ui.sched.target=el.value;render();return}
-  if(el.dataset.act==='check'){if(el.checked) state.career.checks[el.dataset.k]=true; else delete state.career.checks[el.dataset.k];persist();if(ui.tab!=='overview')render();else setTimeout(render,250);return}
+  if(el.dataset.act==='check'){if(el.checked) state.career.checks[el.dataset.k]=today(); else delete state.career.checks[el.dataset.k];persist();if(ui.tab!=='overview')render();else setTimeout(render,250);return}
   if(el.dataset.act==='concept'){const arr=new Set(state.concepts[el.dataset.id]||[]);const i=+el.dataset.i;el.checked?arr.add(i):arr.delete(i);state.concepts[el.dataset.id]=[...arr];persist();render();return}
   const f=el.dataset.f; if(!f) return;
   if(f==='tcourse'){T.course=el.value;return}
@@ -1685,6 +1721,7 @@ app.addEventListener('change',e=>{
   persist(); if(f==='grade'||f==='cr') render();
 });
 
+app.addEventListener('toggle',e=>{if(e.target.dataset&&e.target.dataset.dt==='ovDone') ui.ovDone=e.target.open},true);
 app.addEventListener('keydown',e=>{
   if(e.key!=='Enter') return;const id=e.target.id||'';
   const m=id.match(/^ga-(?:name|score|max|weight)-(.+)$/);
