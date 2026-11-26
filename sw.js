@@ -1,5 +1,5 @@
 // Network first, cache as fallback: always fresh when online, still opens offline.
-const CACHE = 'flight-deck-v8';
+const CACHE = 'flight-deck-v9';
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {

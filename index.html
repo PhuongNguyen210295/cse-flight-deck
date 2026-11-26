@@ -93,6 +93,26 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--line);
 .dir-list .mono{font-size:.75rem;color:var(--muted);margin-left:6px}
 details summary{cursor:pointer;font-weight:600}
 .linkbtn{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;font:inherit;cursor:pointer}
+/* grades */
+.gcard{display:grid;gap:10px}
+.gavg{display:flex;align-items:baseline;gap:8px}
+.gavg .big{font-family:var(--f-display);font-size:1.6rem;font-weight:600;font-variant-numeric:tabular-nums}
+.letter{font-family:var(--f-display);font-weight:700;font-size:1rem;background:var(--accent-soft);color:var(--ink);border-radius:6px;padding:2px 8px}
+.letter.good{background:var(--done-soft);color:var(--done)}
+.letter.low{background:var(--sunk);color:var(--warn)}
+.arows{display:grid;gap:6px}
+.arow{display:grid;grid-template-columns:minmax(0,1.6fr) 74px 74px 74px 64px 32px;gap:6px;align-items:center}
+.arow.head{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.arow input{width:100%;min-width:0;border:1px solid var(--line);border-radius:5px;background:var(--bg);padding:5px 7px;font-variant-numeric:tabular-nums}
+.arow .res{font-family:var(--f-mono);font-size:.82rem;text-align:right}
+.arow.add input{background:var(--surface);border-style:dashed}
+@media (max-width:600px){
+  .arow{grid-template-columns:repeat(3,minmax(0,1fr)) 54px 32px}
+  .arow > :first-child{grid-column:1/-1}
+  .arow.head{display:none}
+  .arow{padding-bottom:8px;border-bottom:1px solid var(--line)}
+}
+.gnote{font-size:.82rem;color:var(--muted);margin:0}
 /* class pins on the map */
 .cls-pin{background:none;border:0}
 .cpw{position:absolute;left:0;top:0;transform:translate(-50%,calc(-100% - 14px));display:grid;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 7px;box-shadow:0 2px 8px rgba(0,0,0,.22);white-space:nowrap;font-size:.74rem;color:var(--ink);cursor:pointer}
@@ -284,6 +304,7 @@ a{color:var(--accent)}
       <button data-tab="schedule" role="tab">Schedule</button>
       <button data-tab="map" role="tab">Campus map</button>
       <button data-tab="plan" role="tab">Flight plan</button>
+      <button data-tab="grades" role="tab">Grades</button>
       <button data-tab="study" role="tab">Study</button>
       <button data-tab="career" role="tab">Career</button>
       <button data-tab="timer" role="tab">Focus timer</button>
@@ -408,7 +429,15 @@ const STARTER=[
 /* ---------- state ---------- */
 const uid=()=>Math.random().toString(36).slice(2,10);
 function starterPlan(){return STARTER.map(([y,t,c,ti,cr])=>({id:uid(),year:y,term:t,code:c,title:ti,cr,status:'planned',grade:''}))}
-function freshState(){return {v:1,starter:true,plan:starterPlan(),concepts:{},cards:{},career:{track:null,checks:{}},log:{},topic:null,schedule:{active:null,terms:{}},mapDest:null,mapPins:{}}}
+function freshState(){return {v:1,starter:true,plan:starterPlan(),concepts:{},cards:{},career:{track:null,checks:{}},log:{},topic:null,schedule:{active:null,terms:{}},mapDest:null,mapPins:{},grades:{}}}
+function normGrades(g){
+  const out={};if(!g||typeof g!=='object') return out;
+  for(const [k,v] of Object.entries(g)){ if(!v||!Array.isArray(v.items)) continue;
+    out[k]={items:v.items.filter(Boolean).slice(0,60).map(x=>({id:String(x.id||uid()),name:String(x.name||'').slice(0,60),
+      score:x.score===''||x.score===null||!isFinite(+x.score)?null:+x.score,max:isFinite(+x.max)&&+x.max>0?+x.max:100,
+      weight:x.weight===''||x.weight===null||!isFinite(+x.weight)?null:Math.max(0,+x.weight)}))} }
+  return out;
+}
 function normClass(c){return {id:String(c.id||uid()),code:String(c.code||'').slice(0,20),title:String(c.title||'').slice(0,120),kind:String(c.kind||'').slice(0,30),
   days:Array.isArray(c.days)?[...new Set(c.days.map(Number).filter(d=>d>=0&&d<=6))].sort((a,b)=>a-b):[],
   start:/^\d{2}:\d{2}$/.test(c.start)?c.start:'',end:/^\d{2}:\d{2}$/.test(c.end)?c.end:'',room:String(c.room||'').slice(0,120),instructor:String(c.instructor||'').slice(0,80)}}
@@ -426,6 +455,7 @@ function normalize(s){
       return {track:ok?s.career.track:null,chosen:!!ok,checks:(s.career&&s.career.checks)||{}}})(),
     log:s.log&&typeof s.log==='object'?s.log:{},topic:s.topic||null,schedule:normSchedule(s.schedule),
     mapDest:typeof s.mapDest==='string'?s.mapDest:null,
+    grades:normGrades(s.grades),
     mapPins:s.mapPins&&typeof s.mapPins==='object'?Object.fromEntries(Object.entries(s.mapPins).filter(([k,v])=>Array.isArray(v)&&v.length===2&&isFinite(v[0])&&isFinite(v[1]))):{}};
 }
 const LS='cse-flight-deck-v1';
@@ -750,6 +780,120 @@ function parsePlan(text){
     if(/co-?op/i.test(line)&&line.length<70&&!/^(complete|prior|before|students)/i.test(line)) out.push({year,term,code:'CO-OP',title:line,cr:0});
   }
   return out;
+}
+
+/* ---------- grades: exams per course, course average, semester average ---------- */
+/* Common US 100-point scale. Instructors can set their own cutoffs; the syllabus wins. */
+const GSCALE=[[97,'A+'],[93,'A'],[90,'A-'],[87,'B+'],[83,'B'],[80,'B-'],[77,'C+'],[73,'C'],[70,'C-'],[67,'D+'],[63,'D'],[60,'D-'],[0,'F']];
+const letterOf=p=>{for(const [cut,l] of GSCALE) if(p>=cut-1e-9) return l;return 'F'};
+const gkey=c=>c.year+'|'+c.term+'|'+c.code.replace(/\s+/g,' ').toUpperCase();
+const gItems=c=>(state.grades[gkey(c)]||{items:[]}).items;
+/* Weighted when any weight is entered (average over the weights entered so far); otherwise total points earned / total possible. */
+function courseAvg(items){
+  const v=items.filter(x=>x.score!==null&&isFinite(x.score)&&x.max>0);
+  if(!v.length) return null;
+  const w=v.filter(x=>x.weight>0);
+  if(w.length){const sw=w.reduce((a,x)=>a+x.weight,0);
+    return {pct:w.reduce((a,x)=>a+x.weight*(x.score/x.max*100),0)/sw,mode:'weighted',sw,skipped:v.length-w.length,n:v.length}}
+  return {pct:v.reduce((a,x)=>a+x.score,0)/v.reduce((a,x)=>a+x.max,0)*100,mode:'points',n:v.length};
+}
+const fmtPct=p=>(Math.round(p*10)/10).toFixed(1)+'%';
+const letterCls=l=>/^A/.test(l)?'good':/^(D|F)/.test(l)?'low':'';
+function gradeSems(){return semesters().filter(s=>s.courses.some(c=>c.cr>0&&!isCoop(c)))}
+function gradeSemKey(){
+  const sems=gradeSems();if(!sems.length) return null;
+  if(ui.gSem&&sems.some(s=>s.year+'|'+s.term===ui.gSem)) return ui.gSem;
+  const withData=sems.filter(s=>s.courses.some(c=>gItems(c).length));
+  const cur=currentSem();
+  const pick=(cur&&sems.find(s=>s===cur))||withData[withData.length-1]||sems[0];
+  return pick.year+'|'+pick.term;
+}
+function semSummary(courses){
+  let wp=0,wc=0,gp=0,gc=0,graded=0;
+  for(const c of courses){const a=courseAvg(gItems(c));if(!a) continue;graded++;
+    wp+=a.pct*c.cr;wc+=c.cr;gp+=GRADES[letterOf(a.pct)]*c.cr;gc+=c.cr}
+  return {avg:wc?wp/wc:null,gpa:gc?gp/gc:null,graded,total:courses.length};
+}
+function vGrades(){
+  const sems=gradeSems();
+  if(!sems.length) return `<section class="panel"><h2>Grades</h2><p class="muted">Add courses to your flight plan first.</p></section>`;
+  const key=gradeSemKey();ui.gSem=key;
+  const sem=sems.find(s=>s.year+'|'+s.term===key);
+  const courses=sem.courses.filter(c=>c.cr>0&&!isCoop(c));
+  const sum=semSummary(courses);
+  const sl=sum.avg===null?null:letterOf(sum.avg);
+  return `<section class="panel">
+    <div class="row" style="justify-content:space-between">
+      <div><h2>Grades</h2><p class="muted" style="margin:2px 0 0">Enter each exam, quiz or assignment. Averages update as you type.</p></div>
+      <select class="btn" data-gs="sem" aria-label="Semester">${sems.map(s=>{const k=s.year+'|'+s.term;const has=s.courses.some(c=>gItems(c).length);
+        return `<option value="${esc(k)}"${k===key?' selected':''}>Year ${s.year} · ${s.term}${has?' ●':''}</option>`}).join('')}</select>
+    </div>
+    <div class="gauges">
+      <div class="gauge"><span class="label">Semester average</span><span class="v">${sum.avg===null?'—':fmtPct(sum.avg)}</span><span class="muted" style="font-size:.8rem">${sum.avg===null?'Enter a score to start':'Credit-weighted across courses'}</span></div>
+      <div class="gauge"><span class="label">Letter</span><span class="v">${sl||'—'}</span><span class="muted" style="font-size:.8rem">From the semester average</span></div>
+      <div class="gauge"><span class="label">Semester GPA</span><span class="v">${sum.gpa===null?'—':sum.gpa.toFixed(2)}</span><span class="muted" style="font-size:.8rem">Each course's letter × credits</span></div>
+      <div class="gauge"><span class="label">Courses with scores</span><span class="v">${sum.graded}<small> / ${sum.total}</small></span><div class="bar done"><span style="width:${pct(sum.graded,sum.total)}%"></span></div></div>
+    </div>
+    ${courses.map(gradeCard).join('')}
+    <p class="gnote">Letter cutoffs use the common scale (A 93+, A- 90+, B+ 87+, B 83+, …, F below 60). Your instructor's syllabus may differ.</p>
+  </section>`;
+}
+function gradeCard(c){
+  const items=gItems(c),a=courseAvg(items),l=a?letterOf(a.pct):null;
+  const row=x=>{const r=x.score!==null&&x.max>0?x.score/x.max*100:null;
+    return `<div class="arow"><input data-gf="name" data-c="${c.id}" data-i="${x.id}" value="${esc(x.name)}" aria-label="Assessment name">
+      <input data-gf="score" data-c="${c.id}" data-i="${x.id}" value="${x.score===null?'':x.score}" inputmode="decimal" aria-label="Score">
+      <input data-gf="max" data-c="${c.id}" data-i="${x.id}" value="${x.max}" inputmode="decimal" aria-label="Out of">
+      <input data-gf="weight" data-c="${c.id}" data-i="${x.id}" value="${x.weight===null?'':x.weight}" inputmode="decimal" placeholder="—" aria-label="Weight percent">
+      <span class="res">${r===null?'—':fmtPct(r)}</span>
+      <button class="btn ghost small" data-act="g-del" data-c="${c.id}" data-i="${x.id}" aria-label="Remove ${esc(x.name)}">✕</button></div>`};
+  return `<div class="card gcard">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div style="min-width:0"><span class="pill">${esc(c.code)}</span> <b>${esc(c.title)}</b> <span class="mono muted" style="font-size:.8rem">${c.cr} cr</span></div>
+      <div class="gavg">${a?`<span class="big">${fmtPct(a.pct)}</span><span class="letter ${letterCls(l)}">${l}</span>`:'<span class="muted">No scores yet</span>'}</div>
+    </div>
+    <div class="arows">
+      ${items.length?`<div class="arow head"><span>Exam / assignment</span><span>Score</span><span>Out of</span><span>Weight %</span><span style="text-align:right">Result</span><span></span></div>`:''}
+      ${items.map(row).join('')}
+      <div class="arow add"><input id="ga-name-${c.id}" placeholder="${items.length?'Add another (e.g. Final exam)':'e.g. Exam 1'}" aria-label="New assessment name">
+        <input id="ga-score-${c.id}" placeholder="Score" inputmode="decimal" aria-label="New score">
+        <input id="ga-max-${c.id}" value="100" inputmode="decimal" aria-label="New out of">
+        <input id="ga-weight-${c.id}" placeholder="Wt %" inputmode="decimal" aria-label="New weight percent">
+        <span></span><button class="btn small primary" data-act="g-add" data-c="${c.id}" aria-label="Add assessment">+</button></div>
+    </div>
+    ${a?`<p class="gnote">${a.mode==='weighted'?`Weighted average over ${Math.round(a.sw)}% of the course entered so far${a.skipped?` · ${a.skipped} score${a.skipped>1?'s':''} without a weight not counted`:''}.`:`Total points: ${items.filter(x=>x.score!==null).reduce((s,x)=>s+x.score,0)} / ${items.filter(x=>x.score!==null).reduce((s,x)=>s+x.max,0)}. Add weights if your syllabus weights exams differently.`}</p>`:''}
+    ${a?`<div class="row">${c.grade===l&&c.status==='done'?`<span class="chip done">Final grade ${esc(l)} saved to flight plan</span>`:`<button class="btn small" data-act="g-final" data-c="${c.id}">Save ${l} as final grade</button>`}${c.grade&&c.grade!==l?`<span class="gnote">Flight plan currently has ${esc(c.grade)}</span>`:''}</div>`:''}
+  </div>`;
+}
+function gradeClick(el){
+  const a=el.dataset.act,c=state.plan.find(x=>x.id===el.dataset.c);if(!c) return;
+  const k=gkey(c);
+  if(a==='g-add'){
+    const v=id=>document.getElementById(id+c.id).value.trim();
+    const name=v('ga-name-')||('Assessment '+(gItems(c).length+1));
+    const score=v('ga-score-'),max=v('ga-max-'),weight=v('ga-weight-');
+    if(score!==''&&!isFinite(+score)) return;
+    state.grades[k]=state.grades[k]||{items:[]};
+    state.grades[k].items.push({id:uid(),name:name.slice(0,60),score:score===''?null:+score,max:isFinite(+max)&&+max>0?+max:100,weight:weight===''||!isFinite(+weight)?null:Math.max(0,+weight)});
+    persist();render();
+    const n=document.getElementById('ga-name-'+c.id);if(n) n.focus();
+  }else if(a==='g-del'){
+    if(!state.grades[k]) return;
+    state.grades[k].items=state.grades[k].items.filter(x=>x.id!==el.dataset.i);persist();render();
+  }else if(a==='g-final'){
+    const av=courseAvg(gItems(c));if(!av) return;
+    c.grade=letterOf(av.pct);c.status='done';persist();render();
+  }
+}
+function gradeChange(el){
+  const c=state.plan.find(x=>x.id===el.dataset.c);if(!c) return;
+  const g=state.grades[gkey(c)];if(!g) return;const it=g.items.find(x=>x.id===el.dataset.i);if(!it) return;
+  const f=el.dataset.gf,v=el.value.trim();
+  if(f==='name') it.name=v.slice(0,60)||it.name;
+  else if(f==='score') it.score=v===''?null:(isFinite(+v)?+v:it.score);
+  else if(f==='max') it.max=isFinite(+v)&&+v>0?+v:it.max;
+  else if(f==='weight') it.weight=v===''?null:(isFinite(+v)?Math.max(0,+v):it.weight);
+  persist();render();
 }
 
 /* ---------- class schedule ---------- */
@@ -1460,7 +1604,7 @@ function render(){
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===ui.tab)));
   const sx=window.scrollX, sy=window.scrollY;
   if(mapHost.parentNode!==document.body){document.body.appendChild(mapHost);mapHost.hidden=true}
-  app.innerHTML=({overview:vOverview,schedule:vSchedule,map:vMap,plan:vPlan,study:vStudy,career:vCareer,timer:vTimer}[ui.tab]||vOverview)();
+  app.innerHTML=({overview:vOverview,schedule:vSchedule,map:vMap,plan:vPlan,grades:vGrades,study:vStudy,career:vCareer,timer:vTimer}[ui.tab]||vOverview)();
   const slot=document.getElementById('mapSlot');
   if(slot){
     slot.appendChild(mapHost);mapHost.hidden=false;
@@ -1482,6 +1626,7 @@ app.addEventListener('click',e=>{
   if(el.tagName==='INPUT') return; // checkboxes handled on change
   if(a.startsWith('s-')){schedClick(el);return}
   if(a.startsWith('m-')){mapClick(el);return}
+  if(a.startsWith('g-')){gradeClick(el);return}
   switch(a){
     case 'cycle':{const c=byId(id);c.status=STATUS[(STATUS.indexOf(c.status)+1)%3];if(c.status!=='done')c.grade='';persist();render();break}
     case 'toggleEdit':ui.edit=!ui.edit;render();break;
@@ -1523,6 +1668,8 @@ app.addEventListener('change',e=>{
     f.text().then(t=>{ui.sched.text=/BEGIN:VCALENDAR/.test(t)?'':t;ui.sched.preview=readSchedule(t);ui.sched.target=pickTarget(ui.sched.preview);render()});
     return;
   }
+  if(el.dataset.gf){gradeChange(el);return}
+  if(el.dataset.gs==='sem'){ui.gSem=el.value;render();return}
   if(el.dataset.sf==='term'){state.schedule.active=el.value;ui.sched.confirmDel=false;ui.sched.form=null;persist();render();return}
   if(el.dataset.sf==='target'){ui.sched.target=el.value;render();return}
   if(el.dataset.act==='check'){if(el.checked) state.career.checks[el.dataset.k]=true; else delete state.career.checks[el.dataset.k];persist();if(ui.tab!=='overview')render();else setTimeout(render,250);return}
@@ -1538,6 +1685,12 @@ app.addEventListener('change',e=>{
   persist(); if(f==='grade'||f==='cr') render();
 });
 
+app.addEventListener('keydown',e=>{
+  if(e.key!=='Enter') return;const id=e.target.id||'';
+  const m=id.match(/^ga-(?:name|score|max|weight)-(.+)$/);
+  if(m){e.preventDefault();const b=document.querySelector(`[data-act="g-add"][data-c="${m[1]}"]`);if(b) gradeClick(b)}
+  else if(e.target.dataset&&e.target.dataset.gf){e.preventDefault();e.target.blur()}
+});
 app.addEventListener('input',e=>{if(e.target.id==='bsearch'){ui.mapQ=e.target.value;const r=document.getElementById('bresults');if(r)r.innerHTML=searchResults(ui.mapQ)}});
 render();
 initStore();
