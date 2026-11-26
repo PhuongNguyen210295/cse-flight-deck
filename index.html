@@ -1210,6 +1210,16 @@ function classStatuses(d,list){
     return {key:'',text:`Starts in ${dur(toMin(c.start)-mins)}`};
   });
 }
+/* Which classes the map shows: finished ones never; by default only the class in progress and the next one to start */
+function shownIdx(list,st){
+  const idx=[];let nextTaken=false;
+  list.forEach((c,i)=>{
+    if(st[i].key==='past') return;
+    if(ui.mapAll||st[i].key==='now') {idx.push(i);return}
+    if(!nextTaken){nextTaken=true;idx.push(i)}
+  });
+  return idx;
+}
 /* Room number from a room string, e.g. "Duthie Center 117" -> "Rm 117", "Natural Sciences Bldg Room 112A" -> "Rm 112A" */
 function roomNo(room){
   const m=String(room||'').match(/(?:room|rm\.?|#)?\s*([A-Z]?-?\d{1,4}[A-Z]?)\s*$/i);
@@ -1222,7 +1232,8 @@ function drawClasses(){
   const d=mapDay(),list=dayList(d);if(!list.length) return;
   const st=classStatuses(d,list);
   const g=L.layerGroup(),groups=new Map(),route=[];
-  list.forEach((c,i)=>{if(st[i].key==='past') return; /* finished today: taken off the map */
+  const show=new Set(shownIdx(list,st));
+  list.forEach((c,i)=>{if(!show.has(i)) return; /* finished, or not coming up yet */
     const b=matchBuilding(c.room);if(!b) return;
     if(!groups.has(b.id)) groups.set(b.id,{b,items:[]});
     groups.get(b.id).items.push({c,i:i+1,s:st[i]});
@@ -1240,7 +1251,7 @@ function drawClasses(){
 function fitDay(){
   if(!M.map) return;
   const d=mapDay(),list=dayList(d),st=classStatuses(d,list);
-  const pts=list.filter((c,i)=>st[i].key!=='past').map(c=>matchBuilding(c.room)).filter(Boolean).map(bpos);
+  const pts=shownIdx(list,st).map(i=>matchBuilding(list[i].room)).filter(Boolean).map(bpos);
   if(!pts.length) return;
   M.follow=false;updateLocBtn();
   if(pts.length===1) M.map.setView(pts[0],18,{animate:false}); else M.map.fitBounds(pts,{paddingTopLeft:[100,70],paddingBottomRight:[100,30],maxZoom:18,animate:false});
@@ -1257,7 +1268,10 @@ function classPanel(){
     <div class="chips">${days.map(x=>`<button data-act="m-day" data-d="${x}" style="${x===d?'border-color:var(--accent);background:var(--accent-soft)':''}">${x===today?'Today':DAYN[x]}</button>`).join('')}</div>
     ${list.length&&st.every(s=>s.key==='past')?`<p class="muted" style="margin:0">All of today's classes are done. Pick another day to see its classes.</p>`:''}
     ${st.some(s=>s.key==='past')?`<p class="muted" style="margin:0;font-size:.85rem">✓ Done today (removed from the map): ${list.filter((c,i)=>st[i].key==='past').map(c=>esc(c.code)).join(', ')}</p>`:''}
-    ${list.length?`<div class="mc-list">${list.map((c,i)=>{if(st[i].key==='past') return '';const b=matchBuilding(c.room);return `<div class="mc-row ${st[i].key}">
+    ${(()=>{const shown=new Set(shownIdx(list,st));const later=list.filter((c,i)=>st[i].key!=='past'&&!shown.has(i));
+      return later.length?`<p class="muted" style="margin:0;font-size:.85rem">Later${d===today?' today':''}: ${later.map(c=>`${esc(c.code)} ${fmt12(c.start)}`).join(' · ')} <button class="linkbtn" data-act="m-all">Show whole day</button></p>`
+        :(ui.mapAll&&list.filter((c,i)=>st[i].key!=='past').length>1?`<p class="muted" style="margin:0;font-size:.85rem">Showing the whole day. <button class="linkbtn" data-act="m-all">Show only what's next</button></p>`:'');})()}
+    ${list.length?`<div class="mc-list">${list.map((c,i)=>{if(!shownIdx(list,st).includes(i)) return '';const b=matchBuilding(c.room);return `<div class="mc-row ${st[i].key}">
       <span class="num">${i+1}</span>
       <div style="display:grid;gap:2px;min-width:0"><div><b class="mono">${esc(c.code)}</b>${roomNo(c.room)?` <span class="pill">${esc(roomNo(c.room))}</span>`:''} ${c.title?esc(c.title):''}${c.kind?` <span class="muted">· ${esc(c.kind)}</span>`:''}</div>
         <span class="mc-when">${fmt12(c.start)} – ${fmt12(c.end)}</span>
@@ -1417,6 +1431,7 @@ function mapClick(el){
     case 'm-center':M.follow=false;fitBoth();updateLocBtn();break;
     case 'm-me':centerMe();if(M.watch!==null)refreshGuide();document.getElementById('mapHost').scrollIntoView({behavior:'smooth',block:'center'});break;
     case 'm-day':ui.mapDay=+el.dataset.d;M.pendingFit=true;render();break;
+    case 'm-all':ui.mapAll=!ui.mapAll;M.pendingFit=true;render();break;
     case 'm-show':{const b=BLD_BY_ID[id];if(b&&M.map){M.follow=false;updateLocBtn();M.map.setView(bpos(b),18,{animate:false});const mk=M.clsMarkers&&M.clsMarkers[id];if(mk)mk.openPopup();document.getElementById('mapHost').scrollIntoView({behavior:'smooth',block:'center'})}break}
     case 'm-clear':state.mapDest=null;persist();drawDest();drawMe();refreshGuide();break;
     case 'm-pin':{const b=BLD_BY_ID[state.mapDest];if(b&&M.me){state.mapPins[b.id]=[M.me.lat,M.me.lon];persist();if(b.marker)b.marker.setLatLng(bpos(b));drawDest();drawMe();refreshGuide()}break}
