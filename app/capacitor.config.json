@@ -1,0 +1,10 @@
+{
+  "appId": "io.github.phuongnguyen210295.flightdeck",
+  "appName": "CSE Flight Deck",
+  "webDir": "www",
+  "backgroundColor": "#152030",
+  "android": {
+    "backgroundColor": "#152030",
+    "adjustMarginsForEdgeToEdge": "force"
+  }
+}

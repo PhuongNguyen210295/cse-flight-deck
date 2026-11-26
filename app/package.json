@@ -1,0 +1,17 @@
+{
+  "name": "cse-flight-deck-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Android wrapper for CSE Flight Deck (Capacitor).",
+  "scripts": {
+    "copy-web": "node -e \"const fs=require('fs');fs.rmSync('www',{recursive:true,force:true});fs.mkdirSync('www/icons',{recursive:true});for(const f of ['index.html','manifest.webmanifest'])fs.copyFileSync('../'+f,'www/'+f);for(const f of fs.readdirSync('../icons'))fs.copyFileSync('../icons/'+f,'www/icons/'+f);\""
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.0.0"
+  }
+}

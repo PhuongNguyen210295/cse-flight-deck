@@ -3,10 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#152030">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#152030" media="(prefers-color-scheme: dark)">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Flight Deck">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body><title>CSE Flight Deck</title>
@@ -183,7 +187,7 @@ textarea{width:100%;min-height:180px;border:1px solid var(--line);border-radius:
       <button data-tab="career" role="tab">Career</button>
       <button data-tab="timer" role="tab">Focus timer</button>
     </nav>
-    <span class="save" id="save"><i></i><span>Saved in this browser</span></span>
+    <span class="save" id="save"><i></i><span>Saved on this device</span></span>
   </div>
 </header>
 
@@ -330,7 +334,7 @@ function persist(){
   saveTimer=setTimeout(()=>{
     const body={json:JSON.stringify(state),updated:Date.now()};
     saveChain=saveChain.then(()=>dbRef.set(body)).then(()=>badge('ok','Saved to your account')).catch(e=>{
-      badge('err',e&&e.code==='quota_exceeded'?'Account storage is full':'Not saved to account; kept in this browser');
+      badge('err',e&&e.code==='quota_exceeded'?'Account storage is full':'Saved on this device');
     });
   },700);
 }
@@ -347,7 +351,7 @@ async function initStore(){
       const d=snap.data(); if(d&&typeof d.json==='string'){state=normalize(JSON.parse(d.json)); try{localStorage.setItem(LS,d.json)}catch(e){} render();}
       badge('ok','Saved to your account');
     }else{ persist(); }
-  }catch(e){ badge('', 'Saved in this browser'); }
+  }catch(e){ badge('', 'Saved on this device'); }
 }
 
 /* ---------- helpers ---------- */
@@ -682,5 +686,10 @@ initStore();
 })();
 </script>
 
+<script>
+if ('serviceWorker' in navigator && !window.Capacitor && location.protocol === 'https:') {
+  window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+}
+</script>
 </body>
 </html>

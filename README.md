@@ -7,5 +7,19 @@ A study and career planner for the University of Louisville Computer Science & E
 - **Career**: career paths, skills, portfolio projects, a year-by-year checklist and interview prep.
 - **Focus timer**: a study timer that logs time per course.
 
-Open `index.html` in any browser. Progress is saved in that browser (localStorage).
-On a phone, open the GitHub Pages link and use "Add to Home Screen" to install it like an app.
+## Install on Android
+
+Download **CSE-Flight-Deck.apk** from the [latest release](../../releases/latest) on your phone and open it.
+Android asks you to allow installs from your browser or Files app the first time.
+
+## Use on the web
+
+https://phuongnguyen210295.github.io/cse-flight-deck/ works offline after the first visit.
+In Chrome, use the menu, then **Add to Home screen** (or **Install app**).
+
+Progress is saved on the device you use (the app and the website each keep their own copy).
+
+## How the Android build works
+
+`app/` is a Capacitor project that wraps `index.html`. Every push to `main` that changes the app runs
+`.github/workflows/android.yml`, which builds the APK and publishes it as a new GitHub release.
