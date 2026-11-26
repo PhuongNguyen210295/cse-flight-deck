@@ -13,7 +13,8 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
-<body><title>CSE Flight Deck</title>
+<body>
+<title>CSE Flight Deck</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -59,6 +60,7 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--line);
 .save{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);display:flex;align-items:center;gap:6px}
 .save i{width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block}
 .save.ok i{background:var(--done)}.save.err i{background:var(--warn)}
+@media (max-width:700px){header.strip{position:static}.brand .tag{display:none}.strip .wrap{gap:8px 12px}}
 
 main{padding-block:24px 64px}
 section.panel{display:grid;grid-template-columns:minmax(0,1fr);gap:24px}
@@ -175,6 +177,43 @@ textarea{width:100%;min-height:180px;border:1px solid var(--line);border-radius:
 .field select,.field input{border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:6px 8px}
 .confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--accent-soft);padding:10px 12px;border-radius:6px}
 @media (prefers-reduced-motion:no-preference){.bar>span,.week .fill{transition:width .4s ease,height .4s ease}}
+
+/* schedule */
+:root{--c1:#B45309;--c2:#0F766E;--c3:#1D4ED8;--c4:#9D174D;--c5:#6D28D9;--c6:#15803D}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--c1:#F2A33A;--c2:#34D3BE;--c3:#82A6F8;--c4:#F472B6;--c5:#B39DFA;--c6:#4ADE80}}
+:root[data-theme="dark"]{--c1:#F2A33A;--c2:#34D3BE;--c3:#82A6F8;--c4:#F472B6;--c5:#B39DFA;--c6:#4ADE80}
+.pill{font-family:var(--f-mono);font-size:.78rem;font-weight:500;background:var(--sunk);border-radius:4px;padding:1px 7px;white-space:nowrap}
+.nextc{display:grid;gap:8px}
+.nx-main{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+.nx-main b{font-family:var(--f-display);font-size:1.25rem;font-weight:600}
+.nx-when{font-family:var(--f-mono);font-size:.95rem;color:var(--accent);font-weight:500}
+.nx-room{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+a{color:var(--accent)}
+.wk{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:10px}
+.wk-col{display:grid;gap:8px;align-content:start;min-width:0}
+.wk-col h4{margin:0;font-family:var(--f-display);font-size:.95rem;padding-bottom:4px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+.wk-col.today h4{color:var(--accent);border-bottom-color:var(--accent)}
+.blk{border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--surface);display:grid;gap:2px;min-width:0}
+.blk .tm{font-family:var(--f-mono);font-size:.76rem;color:var(--muted)}
+.blk .rm{font-size:.82rem;color:var(--muted);overflow-wrap:anywhere}
+.blk.live{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.daychips{display:none;gap:6px;flex-wrap:wrap}
+.daychips button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;font-weight:500}
+.daychips button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+@media (max-width:700px){.wk{grid-template-columns:minmax(0,1fr)}.wk-col{display:none}.wk-col.sel{display:grid}.daychips{display:flex}}
+.cls-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:10px 0;border-top:1px solid var(--line);align-items:center}
+.cls-row:first-child{border-top:0}
+.cls-meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.85rem;color:var(--muted)}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.form-grid .field input,.form-grid .field select{width:100%}
+.daypick{display:flex;flex-wrap:wrap;gap:6px}
+.daypick label{display:flex;gap:4px;align-items:center;border:1px solid var(--line);border-radius:6px;padding:4px 8px;cursor:pointer}
+.steps{margin:0;padding-left:20px;font-size:.9rem}
+.err{color:var(--warn);margin:0;font-size:.9rem}
+.tbl-scroll{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:6px}
+.tbl{width:100%;border-collapse:collapse;font-size:.85rem}
+.tbl td,.tbl th{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.tbl th{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);position:sticky;top:0;background:var(--surface)}
 </style>
 
 <header class="strip">
@@ -182,6 +221,7 @@ textarea{width:100%;min-height:180px;border:1px solid var(--line);border-radius:
     <div class="brand"><h1>CSE Flight Deck</h1><span class="tag">BS · COMPUTER SCIENCE &amp; ENGINEERING</span></div>
     <nav class="tabs" role="tablist" id="tabs">
       <button data-tab="overview" role="tab">Overview</button>
+      <button data-tab="schedule" role="tab">Schedule</button>
       <button data-tab="plan" role="tab">Flight plan</button>
       <button data-tab="study" role="tab">Study</button>
       <button data-tab="career" role="tab">Career</button>
@@ -307,18 +347,27 @@ const STARTER=[
 /* ---------- state ---------- */
 const uid=()=>Math.random().toString(36).slice(2,10);
 function starterPlan(){return STARTER.map(([y,t,c,ti,cr])=>({id:uid(),year:y,term:t,code:c,title:ti,cr,status:'planned',grade:''}))}
-function freshState(){return {v:1,starter:true,plan:starterPlan(),concepts:{},cards:{},career:{track:'swe',checks:{}},log:{},topic:null}}
+function freshState(){return {v:1,starter:true,plan:starterPlan(),concepts:{},cards:{},career:{track:'swe',checks:{}},log:{},topic:null,schedule:{active:null,terms:{}}}}
+function normClass(c){return {id:String(c.id||uid()),code:String(c.code||'').slice(0,20),title:String(c.title||'').slice(0,120),kind:String(c.kind||'').slice(0,30),
+  days:Array.isArray(c.days)?[...new Set(c.days.map(Number).filter(d=>d>=0&&d<=6))].sort((a,b)=>a-b):[],
+  start:/^\d{2}:\d{2}$/.test(c.start)?c.start:'',end:/^\d{2}:\d{2}$/.test(c.end)?c.end:'',room:String(c.room||'').slice(0,120),instructor:String(c.instructor||'').slice(0,80)}}
+function normSchedule(s){
+  const out={active:null,terms:{}}; if(!s||typeof s!=='object') return out;
+  if(s.terms&&typeof s.terms==='object') for(const [k,t] of Object.entries(s.terms)){ if(t&&Array.isArray(t.classes)&&/^\d{4}-(Spring|Summer|Fall)$/.test(k)) out.terms[k]={label:String(t.label||k),classes:t.classes.filter(Boolean).map(normClass)} }
+  out.active=out.terms[s.active]?s.active:(Object.keys(out.terms).sort().pop()||null); return out;
+}
 function normalize(s){
   const f=freshState(); if(!s||typeof s!=='object') return f;
   return {v:1,starter:!!s.starter,plan:Array.isArray(s.plan)?s.plan.filter(c=>c&&c.id).map(c=>({id:String(c.id),year:+c.year||1,term:TERMS.includes(c.term)?c.term:'Fall',code:String(c.code||''),title:String(c.title||''),cr:Math.max(0,+c.cr||0),status:STATUS.includes(c.status)?c.status:'planned',grade:GRADES[c.grade]!==undefined?c.grade:''})):f.plan,
     concepts:s.concepts&&typeof s.concepts==='object'?s.concepts:{},cards:s.cards&&typeof s.cards==='object'?s.cards:{},
     career:{track:(s.career&&TRACKS.some(t=>t.id===s.career.track))?s.career.track:'swe',checks:(s.career&&s.career.checks)||{}},
-    log:s.log&&typeof s.log==='object'?s.log:{},topic:s.topic||null};
+    log:s.log&&typeof s.log==='object'?s.log:{},topic:s.topic||null,schedule:normSchedule(s.schedule)};
 }
 const LS='cse-flight-deck-v1';
 let state=freshState();
 try{const raw=localStorage.getItem(LS); if(raw) state=normalize(JSON.parse(raw));}catch(e){}
-let ui={tab:'overview',edit:false,importOpen:false,importText:'',importPreview:null,confirmReset:false,reveal:false,cardKey:null};
+let ui={tab:'overview',edit:false,importOpen:false,importText:'',importPreview:null,confirmReset:false,reveal:false,cardKey:null,
+  sched:{importOpen:false,text:'',preview:null,target:'new',form:null,err:'',newOpen:false,day:null,confirmDel:false,msg:''}};
 try{const t=localStorage.getItem(LS+'-tab'); if(t) ui.tab=t;}catch(e){}
 
 /* ---------- persistence: account db (private per viewer) with browser fallback ---------- */
@@ -399,7 +448,10 @@ function vOverview(){
   const ms=(MILESTONES[yr]||[]).map((m,i)=>({m,k:'m:'+yr+':'+i})).filter(x=>!state.career.checks[x.k]).slice(0,3);
   const studyTopics=[...new Set(inProg.flatMap(topicsFor))].map(id=>TOPIC_BY_ID[id]).sort((a,b)=>topicMastery(a)-topicMastery(b)).slice(0,4);
   const track=TRACKS.find(t=>t.id===state.career.track);
+  const hasSched=Object.values(state.schedule.terms).some(t=>t.classes.length);
   return `<section class="panel">
+  ${nextClassCard()}
+  ${!hasSched?`<div class="card row" style="justify-content:space-between"><span><b>Add your class schedule</b> <span class="muted">to see your next class and room here.</span></span><button class="btn small" data-act="goSched">Set up schedule</button></div>`:''}
   ${state.starter?`<div class="note"><b>Starter plan loaded.</b> The UofL catalog was unreachable when this app was built, so the plan uses placeholder codes like <span class="mono">CSE 3xx</span>. Open <b>Flight plan → Import from catalog</b> and paste the flight plan text from the <a href="https://catalog.louisville.edu/undergraduate/majors/computer-engineering-science-bs/#flightplantext" target="_blank" rel="noopener">catalog page</a> to load your exact courses.</div>`:''}
   <div class="gauges">
     <div class="gauge"><span class="label">Credits complete</span><span class="v">${s.done}<small> / ${s.total}</small></span><div class="bar done"><span style="width:${pct(s.done,s.total)}%"></span></div></div>
@@ -622,11 +674,304 @@ function parsePlan(text){
   return out;
 }
 
+/* ---------- class schedule ---------- */
+const DAYN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DAYFULL=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const CAL=['Spring','Summer','Fall'];
+const CODE_RE=/\b([A-Z]{2,4})\s?-?\s?(\d{3}[A-Z]?)\b/;
+const COMP_RE=/\b(lecture|lec|laboratory|lab|discussion|dis|seminar|sem|recitation|rec|studio|clinical)\b/i;
+const COMP_ONLY=/^(lecture|lec|laboratory|lab|discussion|dis|seminar|sem|recitation|rec|studio|clinical)$/i;
+const DATE_RANGE_G=/\d{1,2}\/\d{1,2}\/\d{2,4}\s*-\s*\d{1,2}\/\d{1,2}\/\d{2,4}/g;
+const DATE_T=/\d{1,2}\/\d{1,2}\/\d{2,4}/;
+const TIME_SRC='(?<![\\d\\/:])(\\d{1,2})(?::(\\d{2}))?(?:\\s*([AaPp])(?:\\.?[Mm]\\.?)?(?![A-Za-z]))?\\s*(?:-|–|—|to)\\s*(\\d{1,2})(?::(\\d{2}))?(?:\\s*([AaPp])(?:\\.?[Mm]\\.?)?(?![A-Za-z]))?';
+const DAYTOK=/^(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tues|Tue|Wed|Thurs|Thur|Thu|Fri|Sat|Sun|Mo|Tu|We|Th|Fr|Sa|Su|M|T|W|R|F|S|U)+$/;
+const termKey=(term,year)=>year+'-'+term;
+const termOrder=k=>{const [y,t]=k.split('-');return +y*10+CAL.indexOf(t)};
+function guessTerm(d){d=d||new Date();const m=d.getMonth();return {term:m<=4?'Spring':m<=6?'Summer':'Fall',year:d.getFullYear()}}
+function ensureTerm(term,year){const k=termKey(term,year);if(!state.schedule.terms[k]) state.schedule.terms[k]={label:term+' '+year,classes:[]};return k}
+const toMin=h=>{const p=h.split(':');return +p[0]*60+ +p[1]};
+function fmt12(h){if(!h) return '';let [a,b]=h.split(':').map(Number);const ap=a<12?'AM':'PM';a=a%12||12;return a+':'+String(b).padStart(2,'0')+' '+ap}
+const dur=m=>m<60?m+' min':Math.floor(m/60)+' h'+(m%60?' '+m%60+' min':'');
+function to24(h,m,ap){h=+h;m=+(m||0);ap=(ap||'').toLowerCase();if(ap==='p'&&h<12)h+=12;if(ap==='a'&&h===12)h=0;return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')}
+function findTime(line){
+  const re=new RegExp(TIME_SRC,'g');let m;
+  while((m=re.exec(line))){
+    if(!(m[2]||m[5])) continue;
+    let h1=+m[1],h2=+m[4],a1=m[3]&&m[3].toLowerCase(),a2=m[6]&&m[6].toLowerCase();
+    if(h1>23||h2>23) continue;
+    if(h1>12||h2>12){a1=a1||'';a2=a2||''}
+    else{
+      if(!a1&&a2){a1=a2;if(a2==='p'&&h1!==12&&(h1>h2||h2===12))a1='a'}
+      if(!a1){a1=h1===12?'p':(h1>=8&&h1<=11?'a':'p')}
+      if(!a2){a2=(a1==='a'&&h2>=h1&&h2<12)?'a':'p'}
+    }
+    const start=to24(h1,m[2],a1),end=to24(h2,m[5],a2);
+    if(toMin(end)<=toMin(start)) continue;
+    return {start,end,index:m.index,len:m[0].length};
+  }
+  return null;
+}
+function parseDays(tok){
+  let t=String(tok||'').replace(/[\s\/,&.\-]+/g,'');if(!t||!DAYTOK.test(t)) return null;
+  t=t.replace(/Monday|Mon/g,'M').replace(/Tuesday|Tues|Tue/g,'T').replace(/Wednesday|Wed/g,'W').replace(/Thursday|Thurs|Thur|Thu/g,'R').replace(/Friday|Fri/g,'F').replace(/Saturday|Sat/g,'S').replace(/Sunday|Sun/g,'U')
+   .replace(/Mo/g,'M').replace(/Tu/g,'T').replace(/We/g,'W').replace(/Th/g,'R').replace(/Fr/g,'F').replace(/Sa/g,'S').replace(/Su/g,'U');
+  const map={M:1,T:2,W:3,R:4,F:5,S:6,U:0};
+  const d=[...new Set([...t].map(ch=>map[ch]).filter(x=>x!==undefined))].sort((a,b)=>a-b);
+  return d.length?d:null;
+}
+function normKind(k){k=(k||'').toLowerCase();return {lec:'Lecture',lecture:'Lecture',lab:'Lab',laboratory:'Lab',dis:'Discussion',discussion:'Discussion',sem:'Seminar',seminar:'Seminar',rec:'Recitation',recitation:'Recitation',studio:'Studio',clinical:'Clinical'}[k]||''}
+function mergeClasses(list){
+  const map=new Map();
+  for(const c of list){ if(!c.start||!c.end||!c.days.length) continue;
+    const k=[c.code,c.kind,c.start,c.end,c.room].join('|');
+    if(map.has(k)){const x=map.get(k);x.days=[...new Set([...x.days,...c.days])].sort((a,b)=>a-b);if(!x.title&&c.title)x.title=c.title;if(!x.instructor&&c.instructor)x.instructor=c.instructor}
+    else map.set(k,normClass({...c,id:uid()}));
+  }
+  return [...map.values()].sort((a,b)=>a.code.localeCompare(b.code)||toMin(a.start)-toMin(b.start));
+}
+/* Pasted text: the portal's class list (tab-separated or one cell per line) or free lines like "CSE 310 MWF 10:00-10:50 Duthie 117". */
+function parseSchedule(text){
+  const lines=String(text).split(/\r?\n/).map(l=>l.replace(/ /g,' ').trim());
+  const tm=String(text).match(/\b(Spring|Summer|Fall)\s*(?:Semester|Term)?\s*(20\d{2})\b/i);
+  const term=tm?{term:tm[1][0].toUpperCase()+tm[1].slice(1).toLowerCase(),year:+tm[2]}:null;
+  let course=null;const out=[];
+  const looksMeta=s=>!s||!!findTime(s)||DATE_T.test(s)||/^\d{1,6}$/.test(s)||/^[A-Z]{2,4}\s*-?\s*\d{3}/.test(s)||COMP_ONLY.test(s)||!!parseDays(s)||/^(class nbr|section|component|days|room|instructor|start\/end|status|units|grading)/i.test(s);
+  for(let i=0;i<lines.length;i++){
+    const t=lines[i];if(!t) continue;
+    const tr=findTime(t);
+    if(!tr){
+      const hm=t.match(/^([A-Z]{2,4})\s*-?\s*(\d{3}[A-Z]?)(?:\s*-\s*\d{1,3}[A-Z]?)?\s*(?:(?:-|–|:)\s*(.+))?$/);
+      if(hm) course={code:hm[1]+' '+hm[2],title:(hm[3]||'').replace(/\t.*/,'').trim()};
+      continue;
+    }
+    const prefix=t.slice(0,tr.index);let rest=t.slice(tr.index+tr.len);
+    const words=prefix.replace(/\t/g,' ').trim().split(/\s+/).filter(Boolean);
+    let days=null,used=0;
+    for(let k=Math.min(4,words.length);k>=1;k--){const d=parseDays(words.slice(-k).join(''));if(d){days=d;used=k;break}}
+    if(!days) for(let j=i-1;j>=Math.max(0,i-2);j--){const d=parseDays(lines[j]);if(d){days=d;break}}
+    if(!days) continue;
+    const head=words.slice(0,words.length-used).join(' ');
+    let code=course?course.code:'',title=course?course.title:'';
+    const cm=head.match(CODE_RE);
+    if(cm){const nc=cm[1]+' '+cm[2];
+      let tt=head.slice(head.indexOf(cm[0])+cm[0].length).replace(/^\s*-?\s*\d{1,3}[A-Z]?\b/,'').replace(/\s*\b(lecture|lec|laboratory|lab|discussion|dis|seminar|sem|recitation|rec|studio)\b\s*$/i,'').replace(/^[\s\-–:|]+|[\s\-–:|]+$/g,'');
+      if(tt) title=tt; else if(nc!==code) title='';
+      code=nc;}
+    const km=(head+' '+rest).match(COMP_RE)||(lines[i-1]||'').match(COMP_ONLY)||(lines[i-2]||'').match(COMP_ONLY);
+    const kind=km?normKind(km[1]):'';
+    rest=rest.replace(DATE_RANGE_G,'').trim();
+    let room='',instructor='';
+    const cells=rest.split(/\t+/).map(s=>s.trim()).filter(Boolean);
+    if(cells.length>=2){room=cells[0];instructor=cells[1]}
+    else if(cells.length===1){room=cells[0].replace(/^(?:in|at|@|room:?|location:?)\s+/i,'').replace(/^[\s\-–|,]+/,'')}
+    else{let j=i+1;const next=()=>{while(j<lines.length&&!lines[j])j++;return j<lines.length?lines[j]:''};
+      let s=next();if(!looksMeta(s)){room=s;j++;s=next();if(!looksMeta(s)&&/^[A-Za-z ,.'’\-]{2,60}$/.test(s))instructor=s}}
+    out.push({code:code||'CLASS',title,kind,days,start:tr.start,end:tr.end,room,instructor});
+  }
+  return {classes:mergeClasses(out),term};
+}
+function icsDate(v){
+  const m=String(v).match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?/);if(!m||!m[4]) return null;
+  return m[7]?new Date(Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5])):new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]);
+}
+const hhmm=d=>String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+function parseICS(text){
+  const lines=String(text).replace(/\r?\n[ \t]/g,'').split(/\r?\n/);
+  const evs=[];let cur=null;
+  for(const l of lines){
+    if(l==='BEGIN:VEVENT'){cur={};continue}
+    if(l==='END:VEVENT'){if(cur)evs.push(cur);cur=null;continue}
+    if(!cur) continue;const i=l.indexOf(':');if(i<0) continue;
+    const name=l.slice(0,i).split(';')[0].toUpperCase();
+    cur[name]=l.slice(i+1).replace(/\\n/gi,' ').replace(/\\([,;\\])/g,'$1');
+  }
+  const out=[];let first=null;
+  const bymap={SU:0,MO:1,TU:2,WE:3,TH:4,FR:5,SA:6};
+  for(const e of evs){
+    const s=icsDate(e.DTSTART||''),en=icsDate(e.DTEND||'');if(!s||!en) continue;
+    if(!first||s<first) first=s;
+    const bd=(e.RRULE||'').match(/BYDAY=([^;]+)/);
+    const days=bd?bd[1].split(',').map(x=>bymap[x.replace(/^[+-]?\d+/,'')]).filter(x=>x!==undefined):[s.getDay()];
+    const sum=(e.SUMMARY||'').trim();const cm=sum.match(CODE_RE);const km=sum.match(COMP_RE);
+    out.push({code:cm?cm[1]+' '+cm[2]:sum.slice(0,20),title:cm?sum.replace(cm[0],'').replace(COMP_RE,'').replace(/^[\s\-–:|,]+|[\s\-–:|,]+$/g,''):sum,
+      kind:km?normKind(km[1]):'',days,start:hhmm(s),end:hhmm(en),room:(e.LOCATION||'').trim(),instructor:''});
+  }
+  return {classes:mergeClasses(out),term:first?guessTerm(first):null};
+}
+function readSchedule(text){return /BEGIN:VCALENDAR/.test(text)?parseICS(text):parseSchedule(text)}
+function classColor(code){let h=0;for(const ch of code)h=(h*31+ch.charCodeAt(0))>>>0;return 'var(--c'+(h%6+1)+')'}
+const daysLabel=d=>d.map(x=>DAYN[x]).join(' ');
+function mapUrl(room){
+  if(!room||/online|tba|virtual|web|arranged/i.test(room)) return '';
+  const b=room.replace(/\s*(?:room|rm\.?|#)?\s*[A-Z]?\d{1,4}[A-Z]?\s*$/i,'').trim()||room;
+  return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(b+', University of Louisville');
+}
+function markPlan(classes){
+  const codes=new Set(classes.map(c=>c.code.replace(/\s+/g,' ').toUpperCase()));let n=0;
+  for(const c of state.plan) if(c.status==='planned'&&codes.has(c.code.replace(/\s+/g,' ').toUpperCase())){c.status='progress';n++}
+  return n;
+}
+function nextUp(classes){
+  const now=new Date(),dow=now.getDay(),mins=now.getHours()*60+now.getMinutes();
+  for(let off=0;off<8;off++){
+    const d=(dow+off)%7;const list=classes.filter(c=>c.days.includes(d)).sort((a,b)=>toMin(a.start)-toMin(b.start));
+    if(!list.length) continue;
+    if(off===0){
+      const curr=list.find(c=>toMin(c.start)<=mins&&mins<toMin(c.end));
+      if(curr) return {c:curr,off,live:true,later:list.filter(c=>toMin(c.start)>mins),mins};
+      const nx=list.find(c=>toMin(c.start)>mins);
+      if(nx) return {c:nx,off,live:false,later:list.filter(c=>c!==nx&&toMin(c.start)>mins),mins};
+      continue;
+    }
+    return {c:list[0],off,live:false,later:[],mins,day:d};
+  }
+  return null;
+}
+function roomLine(c){const u=mapUrl(c.room);return `<div class="nx-room">${c.room?`<span>📍 ${esc(c.room)}</span>`:'<span class="muted">No room listed</span>'}${u?`<a href="${u}" target="_blank" rel="noopener">Open in Maps</a>`:''}${c.instructor?`<span class="muted">${esc(c.instructor)}</span>`:''}</div>`}
+function nextClassCard(){
+  const t=state.schedule.terms[state.schedule.active];if(!t||!t.classes.length) return '';
+  const n=nextUp(t.classes);if(!n) return '';
+  const c=n.c;
+  const when=n.live?`Now · ends ${fmt12(c.end)}`:n.off===0?`Today ${fmt12(c.start)} · in ${dur(toMin(c.start)-n.mins)}`:n.off===1?`Tomorrow ${fmt12(c.start)}`:`${DAYFULL[n.day]} ${fmt12(c.start)}`;
+  return `<div class="card nextc"><div class="row" style="justify-content:space-between"><span class="label">${n.live?'In class now':'Next class'}</span><span class="label">${esc(t.label)}</span></div>
+    <div class="nx-main"><span class="pill" style="color:${classColor(c.code)}">${esc(c.code)}</span><b>${esc(c.title||c.code)}</b>${c.kind?`<span class="muted">${esc(c.kind)}</span>`:''}</div>
+    <div class="nx-when">${when}</div>${roomLine(c)}
+    ${n.later.length?`<div class="muted" style="font-size:.85rem">Later today: ${n.later.map(x=>`${esc(x.code)} ${fmt12(x.start)}${x.room?' · '+esc(x.room):''}`).join(' &nbsp;|&nbsp; ')}</div>`:''}</div>`;
+}
+function vSchedule(){
+  const S=state.schedule,U=ui.sched;
+  const keys=Object.keys(S.terms).sort((a,b)=>termOrder(a)-termOrder(b));
+  const T=S.active?S.terms[S.active]:null;
+  const g=guessTerm();
+  const termSelect=(id,sel)=>`<select id="${id}">${CAL.map(x=>`<option${x===sel?' selected':''}>${x}</option>`).join('')}</select>`;
+  let h=`<section class="panel">
+  <div class="row" style="justify-content:space-between">
+    <div><h2>Class schedule</h2><p class="muted" style="margin:2px 0 0">Times, rooms and instructors for each semester, without opening the student portal.</p></div>
+    <div class="plan-tools">
+      ${keys.length?`<select class="btn" data-sf="term" aria-label="Semester">${keys.map(k=>`<option value="${esc(k)}"${k===S.active?' selected':''}>${esc(S.terms[k].label)}</option>`).join('')}</select>`:''}
+      <button class="btn${U.importOpen?' primary':''}" data-act="s-import">${U.importOpen?'Close import':'Import schedule'}</button>
+      <button class="btn" data-act="s-add">+ Add class</button>
+      <button class="btn ghost" data-act="s-newterm">+ Semester</button>
+    </div>
+  </div>`;
+  if(U.msg) h+=`<div class="note">${esc(U.msg)}</div>`;
+  if(U.newOpen) h+=`<div class="card row"><span class="label">New semester</span><div class="field">${termSelect('sn-term',g.term)}</div><div class="field"><input id="sn-year" type="number" min="2020" max="2040" value="${g.year}" style="width:100px" aria-label="Year"></div><button class="btn primary small" data-act="s-createterm">Create</button><button class="btn small" data-act="s-newterm">Cancel</button></div>`;
+  if(U.importOpen){
+    const P=U.preview;
+    const det=P&&P.term?P.term:g;
+    h+=`<div class="card" style="display:grid;gap:12px">
+      <h3>Import your schedule</h3>
+      <ol class="steps muted">
+        <li>In ULink, open your class schedule for the semester and switch to the list view.</li>
+        <li>Select everything from the first course down to the last, copy it, and paste it below.</li>
+      </ol>
+      <p class="muted" style="margin:0;font-size:.9rem">You can also upload a calendar file (.ics) exported from the portal, Google Calendar or Outlook, or type lines like <span class="mono">CSE 310 MWF 10:00-10:50 Duthie 117</span>.</p>
+      <textarea id="schedText" placeholder="CSE 310 - Discrete Structures&#10;Class Nbr  Section  Component  Days &amp; Times  Room  Instructor&#10;1234  01  Lecture  MoWeFr 10:00AM - 10:50AM  Duthie Center 117  J. Smith">${esc(U.text)}</textarea>
+      <div class="row"><button class="btn" data-act="s-preview">Preview pasted text</button><label class="btn" for="schedFile" style="cursor:pointer">Upload .ics file</label><input id="schedFile" type="file" accept=".ics,text/calendar" hidden></div>
+      ${P&&!P.classes.length?`<p class="err">No classes found. Check that the text includes days and times, such as "MoWe 9:30AM - 10:45AM". Online or "TBA" classes without a time are skipped.</p>`:''}
+      ${P&&P.classes.length?`<div class="tbl-scroll"><table class="tbl"><thead><tr><th>Course</th><th>Type</th><th>Days</th><th>Time</th><th>Room</th><th>Instructor</th></tr></thead><tbody>
+        ${P.classes.map(c=>`<tr><td><b class="mono">${esc(c.code)}</b>${c.title?'<br><span class="muted">'+esc(c.title)+'</span>':''}</td><td>${esc(c.kind)}</td><td>${daysLabel(c.days)}</td><td class="mono">${fmt12(c.start)}–${fmt12(c.end)}</td><td>${esc(c.room)}</td><td>${esc(c.instructor)}</td></tr>`).join('')}
+        </tbody></table></div>
+        <div class="row">
+          <div class="field"><label class="label" for="schedTarget">Save to semester</label><select id="schedTarget" data-sf="target">${keys.map(k=>`<option value="${esc(k)}"${U.target===k?' selected':''}>${esc(S.terms[k].label)}</option>`).join('')}<option value="new"${U.target==='new'?' selected':''}>New semester…</option></select></div>
+          ${U.target==='new'?`<div class="field"><label class="label" for="sn2-term">Term</label>${termSelect('sn2-term',det.term)}</div><div class="field"><label class="label" for="sn2-year">Year</label><input id="sn2-year" type="number" min="2020" max="2040" value="${det.year}" style="width:100px"></div>`:''}
+        </div>
+        <label class="li" style="cursor:pointer"><input type="checkbox" id="s-replace" style="margin-top:4px"><span>Replace the classes already saved in that semester</span></label>
+        <label class="li" style="cursor:pointer"><input type="checkbox" id="s-mark" checked style="margin-top:4px;accent-color:var(--done)"><span>Mark these courses <b>In progress</b> in my flight plan</span></label>
+        <div class="row"><button class="btn primary" data-act="s-apply">Save ${P.classes.length} class${P.classes.length===1?'':'es'}</button></div>`:''}
+    </div>`;
+  }
+  if(U.form){
+    const f=U.form;
+    h+=`<div class="card" style="display:grid;gap:12px"><h3>${f.id?'Edit class':'Add a class'}${T?' · '+esc(T.label):''}</h3>
+      <div class="form-grid">
+        <div class="field"><label class="label" for="sf-code">Course code</label><input id="sf-code" value="${esc(f.code)}" placeholder="CSE 310"></div>
+        <div class="field" style="grid-column:span 2"><label class="label" for="sf-title">Title</label><input id="sf-title" value="${esc(f.title)}" placeholder="Discrete Structures"></div>
+        <div class="field"><label class="label" for="sf-kind">Type</label><select id="sf-kind">${['','Lecture','Lab','Discussion','Seminar','Recitation','Studio'].map(k=>`<option${k===f.kind?' selected':''} value="${k}">${k||'—'}</option>`).join('')}</select></div>
+        <div class="field"><label class="label" for="sf-start">Starts</label><input id="sf-start" type="time" value="${esc(f.start)}"></div>
+        <div class="field"><label class="label" for="sf-end">Ends</label><input id="sf-end" type="time" value="${esc(f.end)}"></div>
+        <div class="field" style="grid-column:span 2"><label class="label" for="sf-room">Building &amp; room</label><input id="sf-room" value="${esc(f.room)}" placeholder="Duthie Center 117"></div>
+        <div class="field"><label class="label" for="sf-instr">Instructor</label><input id="sf-instr" value="${esc(f.instructor)}"></div>
+      </div>
+      <div><div class="label" style="margin-bottom:6px">Days</div><div class="daypick">${[1,2,3,4,5,6,0].map(d=>`<label><input type="checkbox" id="sf-d${d}"${f.days.includes(d)?' checked':''}>${DAYN[d]}</label>`).join('')}</div></div>
+      ${U.err?`<p class="err">${esc(U.err)}</p>`:''}
+      <div class="row"><button class="btn primary" data-act="s-save">${f.id?'Save changes':'Add class'}</button><button class="btn" data-act="s-cancel">Cancel</button></div></div>`;
+  }
+  if(!T||!T.classes.length){
+    if(!U.importOpen&&!U.form) h+=`<div class="card" style="display:grid;gap:10px;justify-items:start"><h3>${T?esc(T.label)+' has no classes yet':'No schedule yet'}</h3><p class="muted" style="margin:0">Import your classes from the student portal or a calendar file, or add them one at a time. You'll see a weekly view with rooms, and the Overview will show your next class.</p><div class="row"><button class="btn primary" data-act="s-import">Import schedule</button><button class="btn" data-act="s-add">Add a class</button></div></div>`;
+    return h+`</section>`;
+  }
+  h+=nextClassCard();
+  const today=new Date().getDay();
+  const used=new Set(T.classes.flatMap(c=>c.days));
+  const cols=[1,2,3,4,5].concat(used.has(6)?[6]:[]).concat(used.has(0)?[0]:[]);
+  if(U.day===null||!cols.includes(U.day)) U.day=cols.includes(today)?today:cols[0];
+  const nowMin=new Date().getHours()*60+new Date().getMinutes();
+  h+=`<div class="card" style="display:grid;gap:12px"><div class="row" style="justify-content:space-between"><h3>Week</h3><span class="mono muted" style="font-size:.8rem">${T.classes.length} meeting${T.classes.length===1?'':'s'} · ${T.classes.reduce((a,c)=>a+c.days.length*(toMin(c.end)-toMin(c.start)),0)/60|0} h/week</span></div>
+    <div class="daychips">${cols.map(d=>`<button data-act="s-day" data-d="${d}" aria-pressed="${d===U.day}">${DAYN[d]}${d===today?' ·':''}</button>`).join('')}</div>
+    <div class="wk" style="--n:${cols.length}">${cols.map(d=>{const list=T.classes.filter(c=>c.days.includes(d)).sort((a,b)=>toMin(a.start)-toMin(b.start));
+      return `<div class="wk-col${d===today?' today':''}${d===U.day?' sel':''}"><h4><span>${DAYFULL[d]}</span>${d===today?'<span class="label" style="color:var(--accent)">Today</span>':''}</h4>
+      ${list.length?list.map(c=>{const live=d===today&&toMin(c.start)<=nowMin&&nowMin<toMin(c.end);const u=mapUrl(c.room);
+        return `<div class="blk${live?' live':''}"><span class="tm">${fmt12(c.start)} – ${fmt12(c.end)}</span><span><span class="pill" style="color:${classColor(c.code)}">${esc(c.code)}</span> ${c.kind?`<span class="muted" style="font-size:.8rem">${esc(c.kind)}</span>`:''}</span>${c.title?`<span style="font-size:.88rem">${esc(c.title)}</span>`:''}<span class="rm">${c.room?(u?`<a href="${u}" target="_blank" rel="noopener">${esc(c.room)}</a>`:esc(c.room)):'No room listed'}</span></div>`}).join(''):'<span class="muted" style="font-size:.85rem">No classes</span>'}</div>`}).join('')}</div></div>`;
+  h+=`<div class="card"><div class="row" style="justify-content:space-between;margin-bottom:4px"><h3>All classes · ${esc(T.label)}</h3></div>
+    <div>${T.classes.slice().sort((a,b)=>a.code.localeCompare(b.code)||toMin(a.start)-toMin(b.start)).map(c=>`<div class="cls-row"><div style="display:grid;gap:3px;min-width:0"><div><span class="pill" style="color:${classColor(c.code)}">${esc(c.code)}</span> <b>${esc(c.title||'')}</b> ${c.kind?`<span class="muted">· ${esc(c.kind)}</span>`:''}</div>
+      <div class="cls-meta"><span class="mono">${daysLabel(c.days)} ${fmt12(c.start)}–${fmt12(c.end)}</span>${c.room?`<span>📍 ${esc(c.room)}</span>`:''}${c.instructor?`<span>${esc(c.instructor)}</span>`:''}</div></div>
+      <div class="row" style="gap:4px"><button class="btn small" data-act="s-edit" data-id="${c.id}">Edit</button><button class="btn ghost small" data-act="s-del" data-id="${c.id}" aria-label="Delete ${esc(c.code)}">✕</button></div></div>`).join('')}</div></div>`;
+  h+=`<div class="row">${U.confirmDel?`<div class="confirm"><span>Delete ${esc(T.label)} and its ${T.classes.length} classes?</span><button class="btn small primary" data-act="s-deltermyes">Delete semester</button><button class="btn small" data-act="s-deltermno">Cancel</button></div>`:`<button class="btn ghost small" data-act="s-delterm">Delete this semester</button>`}</div>`;
+  return h+`</section>`;
+}
+function schedClick(el){
+  const a=el.dataset.act,S=state.schedule,U=ui.sched,id=el.dataset.id;
+  const T=S.active?S.terms[S.active]:null;
+  U.msg='';
+  switch(a){
+    case 's-import':U.importOpen=!U.importOpen;U.form=null;break;
+    case 's-newterm':U.newOpen=!U.newOpen;break;
+    case 's-createterm':{const t=document.getElementById('sn-term').value,y=+document.getElementById('sn-year').value;if(y<2000||y>2100)return;S.active=ensureTerm(t,y);U.newOpen=false;persist();break}
+    case 's-preview':U.text=document.getElementById('schedText').value;U.preview=readSchedule(U.text);U.target=pickTarget(U.preview);break;
+    case 's-apply':{
+      const P=U.preview;if(!P||!P.classes.length) return;
+      let key=document.getElementById('schedTarget').value;
+      if(key==='new'){const t=document.getElementById('sn2-term').value,y=+document.getElementById('sn2-year').value;if(y<2000||y>2100)return;key=ensureTerm(t,y)}
+      const term=S.terms[key];
+      const add=P.classes.map(c=>normClass({...c,id:uid()}));
+      term.classes=document.getElementById('s-replace').checked?add:mergeClasses(term.classes.concat(add));
+      const n=document.getElementById('s-mark').checked?markPlan(add):0;
+      S.active=key;U.preview=null;U.text='';U.importOpen=false;
+      U.msg=`Saved ${add.length} class${add.length===1?'':'es'} to ${term.label}.`+(n?` ${n} course${n===1?' is':'s are'} now In progress in your flight plan.`:'');
+      persist();break;}
+    case 's-add':if(!T){const g=guessTerm();S.active=ensureTerm(g.term,g.year);persist()}U.form={id:null,code:'',title:'',kind:'Lecture',start:'09:00',end:'09:50',room:'',instructor:'',days:[]};U.err='';U.importOpen=false;break;
+    case 's-edit':{const c=T&&T.classes.find(x=>x.id===id);if(c){U.form={...c,days:[...c.days]};U.err='';U.importOpen=false;window.scrollTo(0,0)}break}
+    case 's-cancel':U.form=null;U.err='';break;
+    case 's-save':{
+      const v=k=>document.getElementById(k).value.trim();
+      const f={id:U.form.id,code:v('sf-code').toUpperCase(),title:v('sf-title'),kind:v('sf-kind'),start:v('sf-start'),end:v('sf-end'),room:v('sf-room'),instructor:v('sf-instr'),days:[0,1,2,3,4,5,6].filter(d=>document.getElementById('sf-d'+d).checked)};
+      U.form=f;
+      if(!f.code){U.err='Enter a course code, such as CSE 310.';break}
+      if(!f.days.length){U.err='Pick at least one day.';break}
+      if(!/^\d{2}:\d{2}$/.test(f.start)||!/^\d{2}:\d{2}$/.test(f.end)||toMin(f.end)<=toMin(f.start)){U.err='The end time must be after the start time.';break}
+      if(!T) break;
+      if(f.id){const i=T.classes.findIndex(x=>x.id===f.id);if(i>=0)T.classes[i]=normClass(f)}else T.classes.push(normClass({...f,id:uid()}));
+      U.form=null;U.err='';persist();break;}
+    case 's-del':if(T){T.classes=T.classes.filter(x=>x.id!==id);persist()}break;
+    case 's-day':U.day=+el.dataset.d;break;
+    case 's-delterm':U.confirmDel=true;break;
+    case 's-deltermno':U.confirmDel=false;break;
+    case 's-deltermyes':if(S.active){delete S.terms[S.active];const ks=Object.keys(S.terms).sort((a,b)=>termOrder(a)-termOrder(b));S.active=ks.pop()||null;U.confirmDel=false;persist()}break;
+    default:return;
+  }
+  render();
+}
+function pickTarget(P){
+  const t=P&&P.term;if(t){const k=termKey(t.term,t.year);return state.schedule.terms[k]?k:'new'}
+  return state.schedule.active||'new';
+}
+
 /* ---------- render & events ---------- */
 function render(){
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===ui.tab)));
   const sx=window.scrollX, sy=window.scrollY;
-  app.innerHTML=({overview:vOverview,plan:vPlan,study:vStudy,career:vCareer,timer:vTimer}[ui.tab]||vOverview)();
+  app.innerHTML=({overview:vOverview,schedule:vSchedule,plan:vPlan,study:vStudy,career:vCareer,timer:vTimer}[ui.tab]||vOverview)();
   window.scrollTo(sx,sy);
 }
 function setTab(t){ui.tab=t;try{localStorage.setItem(LS+'-tab',t)}catch(e){}render();window.scrollTo(0,0)}
@@ -637,6 +982,7 @@ app.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]'); if(!el) return;
   const a=el.dataset.act, id=el.dataset.id;
   if(el.tagName==='INPUT') return; // checkboxes handled on change
+  if(a.startsWith('s-')){schedClick(el);return}
   switch(a){
     case 'cycle':{const c=byId(id);c.status=STATUS[(STATUS.indexOf(c.status)+1)%3];if(c.status!=='done')c.grade='';persist();render();break}
     case 'toggleEdit':ui.edit=!ui.edit;render();break;
@@ -652,6 +998,7 @@ app.addEventListener('click',e=>{
     case 'cancelReset':ui.confirmReset=false;render();break;
     case 'doReset':state.plan=starterPlan();state.starter=true;ui.confirmReset=false;persist();render();break;
     case 'topic':state.topic=id;ui.reveal=false;ui.cardKey=null;persist();render();break;
+    case 'goSched':setTab('schedule');break;
     case 'goTopic':state.topic=id;ui.reveal=false;ui.cardKey=null;persist();setTab('study');break;
     case 'reveal':ui.reveal=true;render();break;
     case 'skip':{const t=TOPIC_BY_ID[ui.cardKey.split(':')[0]];ui.cardKey=pickCard(t);ui.reveal=false;render();break}
@@ -668,6 +1015,14 @@ app.addEventListener('click',e=>{
 });
 app.addEventListener('change',e=>{
   const el=e.target;
+  if(el.id==='schedFile'){
+    const f=el.files&&el.files[0];if(!f) return;
+    if(f.size>3e6){ui.sched.preview={classes:[],term:null};render();return}
+    f.text().then(t=>{ui.sched.text=/BEGIN:VCALENDAR/.test(t)?'':t;ui.sched.preview=readSchedule(t);ui.sched.target=pickTarget(ui.sched.preview);render()});
+    return;
+  }
+  if(el.dataset.sf==='term'){state.schedule.active=el.value;ui.sched.confirmDel=false;ui.sched.form=null;persist();render();return}
+  if(el.dataset.sf==='target'){ui.sched.target=el.value;render();return}
   if(el.dataset.act==='check'){if(el.checked) state.career.checks[el.dataset.k]=true; else delete state.career.checks[el.dataset.k];persist();if(ui.tab!=='overview')render();else setTimeout(render,250);return}
   if(el.dataset.act==='concept'){const arr=new Set(state.concepts[el.dataset.id]||[]);const i=+el.dataset.i;el.checked?arr.add(i):arr.delete(i);state.concepts[el.dataset.id]=[...arr];persist();render();return}
   const f=el.dataset.f; if(!f) return;
@@ -683,6 +1038,10 @@ app.addEventListener('change',e=>{
 
 render();
 initStore();
+setInterval(()=>{
+  const tag=(document.activeElement&&document.activeElement.tagName)||'';
+  if((ui.tab==='schedule'||ui.tab==='overview')&&!/INPUT|TEXTAREA|SELECT/.test(tag)&&!ui.sched.form) render();
+},60000);
 })();
 </script>
 
