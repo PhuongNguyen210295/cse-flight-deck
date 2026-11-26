@@ -46,12 +46,35 @@ jobs:
       - name: Sync web files into Android
         run: npx cap sync android
 
+      - name: Set version number (each build must be higher so it installs as an update)
+        run: |
+          sed -i -E "s/versionCode [0-9]+/versionCode $(( ${{ github.run_number }} + 100 ))/; s/versionName \"[^\"]*\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
+          grep -E "versionCode|versionName" android/app/build.gradle
+
       - name: Build APK
         working-directory: app/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
           cp app/build/outputs/apk/debug/app-debug.apk ../../CSE-Flight-Deck.apk
+
+      - name: Sign APK with the permanent app key
+        working-directory: .
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+        run: |
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASS" ]; then
+            echo "::error::Signing key secrets are missing. Without them the app cannot update in place."; exit 1
+          fi
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/key.p12"
+          ALIAS=$(keytool -list -keystore "$RUNNER_TEMP/key.p12" -storetype PKCS12 -storepass "$KS_PASS" | grep -i PrivateKeyEntry | head -1 | cut -d, -f1)
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/key.p12" --ks-type PKCS12 --ks-pass env:KS_PASS --key-pass env:KS_PASS \
+            --ks-key-alias "$ALIAS" --v4-signing-enabled false --out CSE-Flight-Deck-signed.apk CSE-Flight-Deck.apk
+          rm -f "$RUNNER_TEMP/key.p12"
+          mv CSE-Flight-Deck-signed.apk CSE-Flight-Deck.apk
+          "$BT/apksigner" verify --print-certs CSE-Flight-Deck.apk | grep -E "Signer #1 certificate (DN|SHA-256)"
 
       - uses: actions/upload-artifact@v4
         with:
