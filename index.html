@@ -93,6 +93,33 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--line);
 .dir-list .mono{font-size:.75rem;color:var(--muted);margin-left:6px}
 details summary{cursor:pointer;font-weight:600}
 .linkbtn{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;font:inherit;cursor:pointer}
+/* class pins on the map */
+.cls-pin{background:none;border:0}
+.cpw{position:absolute;left:0;top:0;transform:translate(-50%,calc(-100% - 14px));display:grid;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 7px;box-shadow:0 2px 8px rgba(0,0,0,.22);white-space:nowrap;font-size:.74rem;color:var(--ink);cursor:pointer}
+.cpw::after{content:"";position:absolute;left:50%;bottom:-7px;margin-left:-7px;border:7px solid transparent;border-bottom:0;border-top-color:var(--surface);filter:drop-shadow(0 1px 0 var(--line))}
+.cp{display:flex;gap:6px;align-items:center}
+.cp .n{background:var(--accent);color:var(--surface);border-radius:50%;width:17px;height:17px;display:grid;place-items:center;font-weight:700;font-size:.66rem;flex:none}
+.cp b{font-family:var(--f-mono);font-weight:500}
+.cp .t{font-family:var(--f-mono);color:var(--muted)}
+.cp.now .n{background:var(--done)}
+.cp.now .t{color:var(--done);font-weight:600}
+.cp.past{opacity:.45}
+.mc-list{display:grid;gap:0}
+.mc-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.mc-row:first-child{border-top:0}
+.mc-row .num{background:var(--accent);color:var(--surface);border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font-weight:700;font-size:.78rem}
+.mc-row.past{opacity:.55}
+.mc-row.now .num{background:var(--done)}
+.mc-when{font-family:var(--f-mono);font-size:.88rem}
+.mc-status{font-size:.8rem;font-weight:600;color:var(--accent)}
+.mc-row.now .mc-status{color:var(--done)}
+.mc-row.past .mc-status{color:var(--muted)}
+.locbtn{width:40px;height:40px;border-radius:8px;border:2px solid rgba(0,0,0,.2);background:#fff;display:grid;place-items:center;cursor:pointer;padding:0;color:#333}
+.locbtn svg{width:22px;height:22px}
+.locbtn.on{color:#1D4ED8}
+.locbtn.wait svg{animation:locspin 1.2s linear infinite}
+@keyframes locspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.locbtn.wait svg{animation:none}}
 
 main{padding-block:24px 64px}
 section.panel{display:grid;grid-template-columns:minmax(0,1fr);gap:24px}
@@ -1140,9 +1167,95 @@ function initMap(){
   }
   const onZoom=()=>mapHost.classList.toggle('zoomed',map.getZoom()>=18);
   map.on('zoomend',onZoom);onZoom();
-  map.on('dragstart',()=>{M.follow=false});
+  map.on('dragstart',()=>{M.follow=false;M.centerReq=false;updateLocBtn()});
+  const Loc=L.Control.extend({options:{position:'bottomright'},onAdd(){
+    const b=L.DomUtil.create('button','locbtn');b.type='button';b.title='Center on my location';b.setAttribute('aria-label','Center on my location');
+    b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>';
+    L.DomEvent.disableClickPropagation(b);L.DomEvent.on(b,'click',e=>{L.DomEvent.preventDefault(e);centerMe()});
+    M.locBtn=b;return b;}});
+  map.addControl(new Loc());
   M.map=map;
-  drawDest();drawMe();
+  drawDest();drawMe();drawClasses();updateLocBtn();
+}
+function updateLocBtn(){
+  const b=M.locBtn;if(!b) return;
+  b.classList.toggle('on',M.watch!==null&&!!M.me&&M.follow);
+  b.classList.toggle('wait',M.watch!==null&&!M.me&&!!M.centerReq);
+}
+function centerMe(){
+  M.follow=true;M.centerReq=true;
+  if(M.watch===null){startTracking()}
+  else if(M.me&&M.map){M.map.setView([M.me.lat,M.me.lon],Math.max(M.map.getZoom(),18));M.centerReq=false}
+  updateLocBtn();
+}
+/* Classes on the map: numbered pins with start and end times for one day */
+function dayList(d){const t=state.schedule.terms[state.schedule.active];if(!t) return [];return t.classes.filter(c=>c.days.includes(d)).sort((a,b)=>toMin(a.start)-toMin(b.start))}
+function mapDay(){
+  if(ui.mapDay!==undefined&&ui.mapDay!==null) return ui.mapDay;
+  const t=state.schedule.terms[state.schedule.active],today=new Date().getDay();
+  if(!t||!t.classes.length) return today;
+  const mins=new Date().getHours()*60+new Date().getMinutes();
+  if(dayList(today).some(c=>toMin(c.end)>mins)) return today;
+  const n=nextUp(t.classes);return n?(today+n.off)%7:today;
+}
+function classStatuses(d,list){
+  const today=new Date().getDay(),mins=new Date().getHours()*60+new Date().getMinutes();
+  let nextMarked=false;
+  return list.map(c=>{
+    if(d!==today) return {key:'',text:''};
+    if(toMin(c.start)<=mins&&mins<toMin(c.end)) return {key:'now',text:`Now · ends in ${dur(toMin(c.end)-mins)}`};
+    if(toMin(c.end)<=mins) return {key:'past',text:'Done'};
+    if(!nextMarked){nextMarked=true;return {key:'next',text:`Starts in ${dur(toMin(c.start)-mins)}`}}
+    return {key:'',text:`Starts in ${dur(toMin(c.start)-mins)}`};
+  });
+}
+function drawClasses(){
+  if(!M.map||!window.L) return;const L=window.L;
+  if(M.layers.cls){M.map.removeLayer(M.layers.cls);M.layers.cls=null}
+  M.clsMarkers={};
+  const d=mapDay(),list=dayList(d);if(!list.length) return;
+  const st=classStatuses(d,list);
+  const g=L.layerGroup(),groups=new Map(),route=[];
+  list.forEach((c,i)=>{const b=matchBuilding(c.room);if(!b) return;
+    if(!groups.has(b.id)) groups.set(b.id,{b,items:[]});
+    groups.get(b.id).items.push({c,i:i+1,s:st[i]});
+    const p=bpos(b),last=route[route.length-1];if(!last||last[0]!==p[0]||last[1]!==p[1]) route.push(p);});
+  if(route.length>1) L.polyline(route,{color:cssVar('--accent'),weight:3,opacity:.55,dashArray:'1 9',lineCap:'round'}).addTo(g);
+  for(const {b,items} of groups.values()){
+    const html=`<div class="cpw">${items.map(x=>`<div class="cp ${x.s.key}"><span class="n">${x.i}</span><b>${esc(x.c.code)}</b><span class="t">${fmt12(x.c.start)}–${fmt12(x.c.end)}</span></div>`).join('')}</div>`;
+    const mk=L.marker(bpos(b),{icon:L.divIcon({className:'cls-pin',html,iconSize:null,iconAnchor:[0,0]}),zIndexOffset:1000,keyboard:false});
+    mk.bindPopup(`<b>${esc(b.name)}</b>${items.map(x=>`<div style="margin-top:6px"><b class="mono">${x.i}. ${esc(x.c.code)}</b> ${x.c.kind?esc(x.c.kind):''}${x.c.title?'<br>'+esc(x.c.title):''}<br><span class="mono">${fmt12(x.c.start)} – ${fmt12(x.c.end)}</span>${x.s.text?' · '+esc(x.s.text):''}<br>${esc(x.c.room||'')}${x.c.instructor?' · '+esc(x.c.instructor):''}</div>`).join('')}<button class="btn small primary" data-act="m-dest" data-b="${b.id}">Guide me here</button>`,{offset:[0,-28]});
+    mk.addTo(g);M.clsMarkers[b.id]=mk;
+    L.circleMarker(bpos(b),{radius:6,color:'#fff',weight:2,fillColor:cssVar('--accent'),fillOpacity:1,interactive:false}).addTo(g);
+  }
+  g.addTo(M.map);M.layers.cls=g;
+}
+function fitDay(){
+  if(!M.map) return;
+  const pts=dayList(mapDay()).map(c=>matchBuilding(c.room)).filter(Boolean).map(bpos);
+  if(!pts.length) return;
+  M.follow=false;updateLocBtn();
+  if(pts.length===1) M.map.setView(pts[0],18,{animate:false}); else M.map.fitBounds(pts,{paddingTopLeft:[100,70],paddingBottomRight:[100,30],maxZoom:18,animate:false});
+}
+function classPanel(){
+  const t=state.schedule.terms[state.schedule.active];
+  if(!t||!t.classes.length) return `<div class="card row" style="justify-content:space-between"><span><b>See your classes on the map.</b> <span class="muted">Add your schedule to get numbered pins with start and end times.</span></span><button class="btn small" data-act="goSched">Set up schedule</button></div>`;
+  const today=new Date().getDay(),d=mapDay();
+  const used=new Set(t.classes.flatMap(c=>c.days));
+  const days=[1,2,3,4,5,6,0].filter(x=>x<=5&&x>=1||used.has(x));
+  const list=dayList(d),st=classStatuses(d,list);
+  return `<div class="card" style="display:grid;gap:12px">
+    <div class="row" style="justify-content:space-between"><h3>Classes on the map</h3><span class="label">${esc(t.label)}</span></div>
+    <div class="chips">${days.map(x=>`<button data-act="m-day" data-d="${x}" style="${x===d?'border-color:var(--accent);background:var(--accent-soft)':''}">${x===today?'Today':DAYN[x]}</button>`).join('')}</div>
+    ${list.length?`<div class="mc-list">${list.map((c,i)=>{const b=matchBuilding(c.room);return `<div class="mc-row ${st[i].key}">
+      <span class="num">${i+1}</span>
+      <div style="display:grid;gap:2px;min-width:0"><div><b class="mono">${esc(c.code)}</b> ${c.title?esc(c.title):''}${c.kind?` <span class="muted">· ${esc(c.kind)}</span>`:''}</div>
+        <span class="mc-when">${fmt12(c.start)} – ${fmt12(c.end)}</span>
+        <span class="muted" style="font-size:.85rem">${c.room?'📍 '+esc(c.room):'No room listed'}${b?'':' · not found on the map'}</span>
+        ${st[i].text?`<span class="mc-status">${esc(st[i].text)}</span>`:''}</div>
+      <div style="display:grid;gap:4px">${b?`<button class="btn small" data-act="m-show" data-b="${b.id}">Show</button><button class="btn small primary" data-act="m-dest" data-b="${b.id}">Guide</button>`:''}</div></div>`}).join('')}</div>`
+      :`<p class="muted" style="margin:0">No classes on ${DAYFULL[d]}.</p>`}
+  </div>`;
 }
 function drawDest(){
   if(!M.map) return;const L=window.L;
@@ -1165,7 +1278,7 @@ function guideHTML(){
   const tracking=M.watch!==null;
   const gps=M.err?`<span class="gps" style="color:var(--warn)">${esc(M.err)}</span>`:tracking?(M.me?`<span class="gps on">● GPS on · accurate to ±${Math.round(M.me.acc*3.281)} ft</span>`:'<span class="gps">Finding your location…</span>'):'<span class="gps">GPS is off</span>';
   if(!b) return `<div class="guide"><div class="arrow idle">${arrowSvg()}</div><div style="display:grid;gap:4px"><b>Where to?</b><span class="muted" style="font-size:.9rem">Tap one of today's classes below, search for a building, or tap a dot on the map.</span>${gps}</div></div>
-    <div class="row" style="margin-top:10px"><button class="btn${tracking?'':' primary'}" data-act="m-track">${tracking?'Stop GPS':'Show my location'}</button></div>`;
+    <div class="row" style="margin-top:10px"><button class="btn primary" data-act="m-me">Center on my location</button>${tracking?'<button class="btn" data-act="m-track">Stop GPS</button>':''}</div>`;
   const gmaps=`https://www.google.com/maps/dir/?api=1&destination=${bpos(b)[0]},${bpos(b)[1]}&travelmode=walking`;
   return `<div class="guide"><div class="arrow${M.me?'':' idle'}" id="garrow">${arrowSvg()}</div>
     <div style="display:grid;gap:3px;min-width:0"><span class="label">Guiding you to</span><b style="font-family:var(--f-display);font-size:1.2rem">${esc(b.name)}</b>
@@ -1173,6 +1286,7 @@ function guideHTML(){
     <div id="garrived"></div>
     <div class="row" style="margin-top:10px">
       <button class="btn${tracking?'':' primary'}" data-act="m-track">${tracking?'Stop':'Start'} guidance</button>
+      <button class="btn" data-act="m-me">Center on me</button>
       <button class="btn" data-act="m-center">Show both</button>
       <a class="btn" href="${gmaps}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">Walking route in Google Maps</a>
       <button class="btn ghost small" data-act="m-clear">Clear</button>
@@ -1199,7 +1313,9 @@ function onPos(p){
   M.me={lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy||50};
   if(typeof p.coords.heading==='number'&&!isNaN(p.coords.heading)&&(p.coords.speed||0)>0.8&&M.headingSrc!=='compass'){M.heading=p.coords.heading;M.headingSrc='gps'}
   drawMe();
-  if(first){refreshGuide();fitBoth()} else updateGuide();
+  if(M.centerReq&&M.map){M.map.setView([M.me.lat,M.me.lon],Math.max(M.map.getZoom(),18));M.centerReq=false;M.follow=true;if(first)refreshGuide();else updateGuide()}
+  else if(first){refreshGuide();fitBoth()} else updateGuide();
+  updateLocBtn();
 }
 function onPosErr(e){
   M.err=e.code===1?'Location is blocked. Allow location for this app in your phone settings, then tap Start again.':e.code===2?'No GPS signal yet. Step outside or near a window.':'Still looking for GPS…';
@@ -1265,7 +1381,7 @@ function vMap(){
   return `<section class="panel">
     <div><h2>Campus map</h2><p class="muted" style="margin:2px 0 0">Live GPS guidance to the building for your class on Belknap Campus.</p></div>
     <div class="card" id="guideBox">${guideHTML()}</div>
-    ${todayClassChips()}
+    ${classPanel()}
     <div style="display:grid;gap:6px"><label class="label" for="bsearch">Find a building</label><input id="bsearch" value="${esc(q)}" placeholder="Duthie, Ekstrom, Natural Sciences…" autocomplete="off" style="border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--surface)"><div class="chips" id="bresults">${searchResults(q)}</div></div>
     <div id="mapSlot"></div>
     <p class="muted" style="margin:-12px 0 0;font-size:.8rem">Blue: classrooms · Amber: campus life · Pink: administration · Purple: housing · Green: athletics. Zoom in to see building names.</p>
@@ -1288,7 +1404,10 @@ function mapClick(el){
     case 'm-dest':setDest(id);break;
     case 'm-guide':state.mapDest=id;M.arrivedFor=null;persist();setTab('map');startTracking();break;
     case 'm-track':if(M.watch!==null){stopTracking();refreshGuide()}else startTracking();break;
-    case 'm-center':M.follow=true;fitBoth();break;
+    case 'm-center':M.follow=false;fitBoth();updateLocBtn();break;
+    case 'm-me':centerMe();if(M.watch!==null)refreshGuide();document.getElementById('mapHost').scrollIntoView({behavior:'smooth',block:'center'});break;
+    case 'm-day':ui.mapDay=+el.dataset.d;M.pendingFit=true;render();break;
+    case 'm-show':{const b=BLD_BY_ID[id];if(b&&M.map){M.follow=false;updateLocBtn();M.map.setView(bpos(b),18,{animate:false});const mk=M.clsMarkers&&M.clsMarkers[id];if(mk)mk.openPopup();document.getElementById('mapHost').scrollIntoView({behavior:'smooth',block:'center'})}break}
     case 'm-clear':state.mapDest=null;persist();drawDest();drawMe();refreshGuide();break;
     case 'm-pin':{const b=BLD_BY_ID[state.mapDest];if(b&&M.me){state.mapPins[b.id]=[M.me.lat,M.me.lon];persist();if(b.marker)b.marker.setLatLng(bpos(b));drawDest();drawMe();refreshGuide()}break}
     case 'm-unpin':{const b=BLD_BY_ID[state.mapDest];if(b){delete state.mapPins[b.id];persist();if(b.marker)b.marker.setLatLng(bpos(b));drawDest();drawMe();refreshGuide()}break}
@@ -1305,7 +1424,9 @@ function render(){
   const slot=document.getElementById('mapSlot');
   if(slot){
     slot.appendChild(mapHost);mapHost.hidden=false;
-    loadLeaflet().then(()=>{initMap();if(M.map){M.map.invalidateSize();drawDest();drawMe();if(state.mapDest&&!M.me)fitBoth()}})
+    loadLeaflet().then(()=>{const fresh=!M.map;initMap();if(M.map){M.map.invalidateSize();drawDest();drawMe();drawClasses();updateLocBtn();
+      if(M.pendingFit){M.pendingFit=false;fitDay()}
+      else if(fresh){if(state.mapDest&&!M.me)fitBoth();else if(!state.mapDest)fitDay()}}})
       .catch(()=>{mapHost.innerHTML='<p class="muted" style="padding:16px">The map could not load. Check your internet connection and reopen this tab.</p>'});
     updateGuide();
   }
@@ -1379,7 +1500,7 @@ render();
 initStore();
 setInterval(()=>{
   const tag=(document.activeElement&&document.activeElement.tagName)||'';
-  if((ui.tab==='schedule'||ui.tab==='overview')&&!/INPUT|TEXTAREA|SELECT/.test(tag)&&!ui.sched.form) render();
+  if((ui.tab==='schedule'||ui.tab==='overview'||ui.tab==='map')&&!/INPUT|TEXTAREA|SELECT/.test(tag)&&!ui.sched.form) render();
 },60000);
 })();
 </script>
