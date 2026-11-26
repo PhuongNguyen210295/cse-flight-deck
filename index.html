@@ -1222,7 +1222,8 @@ function drawClasses(){
   const d=mapDay(),list=dayList(d);if(!list.length) return;
   const st=classStatuses(d,list);
   const g=L.layerGroup(),groups=new Map(),route=[];
-  list.forEach((c,i)=>{const b=matchBuilding(c.room);if(!b) return;
+  list.forEach((c,i)=>{if(st[i].key==='past') return; /* finished today: taken off the map */
+    const b=matchBuilding(c.room);if(!b) return;
     if(!groups.has(b.id)) groups.set(b.id,{b,items:[]});
     groups.get(b.id).items.push({c,i:i+1,s:st[i]});
     const p=bpos(b),last=route[route.length-1];if(!last||last[0]!==p[0]||last[1]!==p[1]) route.push(p);});
@@ -1238,7 +1239,8 @@ function drawClasses(){
 }
 function fitDay(){
   if(!M.map) return;
-  const pts=dayList(mapDay()).map(c=>matchBuilding(c.room)).filter(Boolean).map(bpos);
+  const d=mapDay(),list=dayList(d),st=classStatuses(d,list);
+  const pts=list.filter((c,i)=>st[i].key!=='past').map(c=>matchBuilding(c.room)).filter(Boolean).map(bpos);
   if(!pts.length) return;
   M.follow=false;updateLocBtn();
   if(pts.length===1) M.map.setView(pts[0],18,{animate:false}); else M.map.fitBounds(pts,{paddingTopLeft:[100,70],paddingBottomRight:[100,30],maxZoom:18,animate:false});
@@ -1253,7 +1255,9 @@ function classPanel(){
   return `<div class="card" style="display:grid;gap:12px">
     <div class="row" style="justify-content:space-between"><h3>Classes on the map</h3><span class="label">${esc(t.label)}</span></div>
     <div class="chips">${days.map(x=>`<button data-act="m-day" data-d="${x}" style="${x===d?'border-color:var(--accent);background:var(--accent-soft)':''}">${x===today?'Today':DAYN[x]}</button>`).join('')}</div>
-    ${list.length?`<div class="mc-list">${list.map((c,i)=>{const b=matchBuilding(c.room);return `<div class="mc-row ${st[i].key}">
+    ${list.length&&st.every(s=>s.key==='past')?`<p class="muted" style="margin:0">All of today's classes are done. Pick another day to see its classes.</p>`:''}
+    ${st.some(s=>s.key==='past')?`<p class="muted" style="margin:0;font-size:.85rem">✓ Done today (removed from the map): ${list.filter((c,i)=>st[i].key==='past').map(c=>esc(c.code)).join(', ')}</p>`:''}
+    ${list.length?`<div class="mc-list">${list.map((c,i)=>{if(st[i].key==='past') return '';const b=matchBuilding(c.room);return `<div class="mc-row ${st[i].key}">
       <span class="num">${i+1}</span>
       <div style="display:grid;gap:2px;min-width:0"><div><b class="mono">${esc(c.code)}</b>${roomNo(c.room)?` <span class="pill">${esc(roomNo(c.room))}</span>`:''} ${c.title?esc(c.title):''}${c.kind?` <span class="muted">· ${esc(c.kind)}</span>`:''}</div>
         <span class="mc-when">${fmt12(c.start)} – ${fmt12(c.end)}</span>
