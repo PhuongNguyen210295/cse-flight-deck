@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#152030">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Flight Deck">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,sans-serif;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body><title>CSE Flight Deck</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a cockpit-style console. A sticky flight strip on top, tabbed panels below, semesters drawn as waypoints along a route. */
+:root{
+  --bg:#EEF2F7; --surface:#FFFFFF; --sunk:#E3E9F1; --ink:#13202F; --muted:#56677D; --line:#D3DBE6;
+  --accent:#B45309; --accent-soft:#FBEFD9; --done:#0F766E; --done-soft:#DCF2EE; --prog:#1D4ED8; --prog-soft:#E2EAFB; --warn:#B91C1C;
+  --f-display:"Chakra Petch","Segoe UI",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --r:8px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0D141E; --surface:#152030; --sunk:#101925; --ink:#E5ECF5; --muted:#93A4BA; --line:#253449;
+  --accent:#F2A33A; --accent-soft:#3A2911; --done:#34D3BE; --done-soft:#0E2E2B; --prog:#82A6F8; --prog-soft:#1A2950; --warn:#F87171; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D141E; --surface:#152030; --sunk:#101925; --ink:#E5ECF5; --muted:#93A4BA; --line:#253449;
+  --accent:#F2A33A; --accent-soft:#3A2911; --done:#34D3BE; --done-soft:#0E2E2B; --prog:#82A6F8; --prog-soft:#1A2950; --warn:#F87171; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:.01em}
+h2{font-size:1.35rem}h3{font-size:1.05rem}
+.mono{font-family:var(--f-mono)}
+.muted{color:var(--muted)}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* header strip */
+header.strip{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.strip .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;padding-block:12px}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand h1{font-size:1.35rem;text-transform:uppercase;letter-spacing:.06em}
+.brand .tag{font-family:var(--f-mono);font-size:.75rem;color:var(--accent)}
+nav.tabs{display:flex;gap:4px;flex-wrap:wrap}
+nav.tabs button{background:none;border:1px solid transparent;border-radius:6px;padding:6px 12px;font-weight:500;color:var(--muted)}
+nav.tabs button:hover{color:var(--ink);background:var(--sunk)}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--line);background:var(--bg)}
+.save{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.save i{width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block}
+.save.ok i{background:var(--done)}.save.err i{background:var(--warn)}
+
+main{padding-block:24px 64px}
+section.panel{display:grid;gap:24px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.grid2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:24px}
+@media (max-width:820px){.grid2{grid-template-columns:minmax(0,1fr)}}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:7px 14px;font-weight:500}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.small{padding:4px 10px;font-size:.85rem}
+.btn.ghost{background:none;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--ink);border-color:var(--line)}
+
+/* instrument tiles */
+.gauges{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:760px){.gauges{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.gauge{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:grid;gap:4px}
+.gauge .v{font-family:var(--f-display);font-size:1.9rem;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.gauge .v small{font-size:.9rem;color:var(--muted);font-weight:500}
+.bar{height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}
+.bar>span{display:block;height:100%;background:var(--accent);border-radius:3px}
+.bar.done>span{background:var(--done)}
+
+/* route */
+.route-scroll{overflow-x:auto;padding-bottom:6px}
+.route{display:flex;align-items:flex-start;min-width:max-content;padding:8px 4px 0}
+.wp{display:grid;justify-items:center;gap:6px;width:86px;position:relative}
+.wp::before{content:"";position:absolute;top:17px;left:-50%;width:100%;height:2px;background:var(--line);z-index:0}
+.wp:first-child::before{display:none}
+.wp.past::before{background:var(--done)}
+.wp .dot{width:36px;height:36px;border-radius:50%;border:2px solid var(--line);background:var(--surface);z-index:1;display:grid;place-items:center;font-family:var(--f-mono);font-size:.7rem;font-weight:500}
+.wp.past .dot{border-color:var(--done);background:var(--done-soft);color:var(--done)}
+.wp.now .dot{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.wp .t{font-size:.75rem;text-align:center;line-height:1.25;color:var(--muted)}
+.wp.now .t{color:var(--ink);font-weight:600}
+.wp.coop .dot{border-style:dashed}
+
+.list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.li{display:flex;gap:10px;align-items:flex-start}
+.li .code{font-family:var(--f-mono);font-size:.82rem;color:var(--muted);min-width:74px}
+
+/* plan */
+.plan-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.year{display:grid;gap:10px}
+.year-head{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.year-head h3{font-size:1.1rem;text-transform:uppercase;letter-spacing:.08em}
+.terms{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.term{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);display:grid;align-content:start}
+.term-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.term-head b{font-family:var(--f-display);font-weight:600}
+.term-head .mono{font-size:.8rem;color:var(--muted)}
+.course{display:grid;grid-template-columns:auto 76px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 14px;border-bottom:1px solid var(--line)}
+.course:last-child{border-bottom:0}
+.course .code{font-family:var(--f-mono);font-size:.8rem}
+.course .title{min-width:0;font-size:.92rem}
+.course .cr{font-family:var(--f-mono);font-size:.8rem;color:var(--muted);text-align:right;white-space:nowrap}
+.course .extra{grid-column:2/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chip{border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:.72rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.chip.done{background:var(--done-soft);color:var(--done);border-color:transparent}
+.chip.progress{background:var(--prog-soft);color:var(--prog);border-color:transparent}
+.status-btn{background:none;border:0;padding:0}
+select.grade{border:1px solid var(--line);border-radius:5px;background:var(--surface);padding:1px 4px;font-size:.8rem}
+.edit input{border:1px solid var(--line);border-radius:5px;background:var(--bg);padding:3px 6px;width:100%;min-width:0}
+.course.edit{grid-template-columns:76px minmax(0,1fr) 52px auto}
+.empty-term{padding:12px 14px;color:var(--muted);font-size:.88rem}
+textarea{width:100%;min-height:180px;border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:10px;font-family:var(--f-mono);font-size:.82rem}
+.note{background:var(--accent-soft);border-radius:var(--r);padding:12px 16px;font-size:.9rem}
+.note b{color:var(--accent)}
+
+/* study */
+.study{display:grid;grid-template-columns:260px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:760px){.study{grid-template-columns:minmax(0,1fr)}}
+.topics{display:grid;gap:4px}
+.topic-btn{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;text-align:left;background:none;border:1px solid transparent;border-radius:6px;padding:7px 10px}
+.topic-btn:hover{background:var(--surface);border-color:var(--line)}
+.topic-btn[aria-pressed="true"]{background:var(--surface);border-color:var(--accent)}
+.topic-btn .bar{grid-column:1/-1;height:4px}
+.topic-btn .pct{font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+.checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 16px;margin:0;padding:0;list-style:none}
+.checks label{display:flex;gap:8px;align-items:flex-start;cursor:pointer;font-size:.92rem}
+.checks input{margin-top:4px;accent-color:var(--done)}
+.flash{border:1px solid var(--line);border-radius:var(--r);background:var(--bg);padding:22px;display:grid;gap:14px;min-height:190px;align-content:center}
+.flash .q{font-family:var(--f-display);font-size:1.25rem;font-weight:600}
+.flash .a{font-size:1.02rem;border-top:1px dashed var(--line);padding-top:12px}
+.boxes{display:flex;gap:4px}
+.boxes span{flex:1;height:22px;border-radius:4px;background:var(--sunk);font-family:var(--f-mono);font-size:.7rem;display:grid;place-items:center;color:var(--muted)}
+
+/* career */
+.tracks{display:flex;flex-wrap:wrap;gap:8px}
+.track-btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;font-weight:500}
+.track-btn[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.timeline{display:grid;gap:0}
+.tl-year{display:grid;grid-template-columns:90px minmax(0,1fr);gap:16px;padding:14px 0;border-top:1px solid var(--line)}
+.tl-year:first-child{border-top:0}
+.tl-year .yr{font-family:var(--f-display);font-weight:600}
+@media (max-width:560px){.tl-year{grid-template-columns:minmax(0,1fr);gap:6px}}
+
+/* timer */
+.timer{display:grid;justify-items:center;gap:14px;text-align:center}
+.clock{font-family:var(--f-display);font-size:clamp(3.2rem,12vw,5.5rem);font-weight:600;font-variant-numeric:tabular-nums;line-height:1}
+.mode{font-family:var(--f-mono);font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;align-items:end;height:150px}
+.week .col{display:grid;grid-template-rows:auto 1fr auto;height:100%;gap:4px;text-align:center}
+.week .stem{display:flex;align-items:flex-end}
+.week .fill{width:100%;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px}
+.week .col.today .fill{background:var(--done)}
+.week .n{font-family:var(--f-mono);font-size:.72rem;color:var(--muted)}
+.week .d{font-size:.75rem;color:var(--muted)}
+.field{display:grid;gap:4px}
+.field select,.field input{border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:6px 8px}
+.confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--accent-soft);padding:10px 12px;border-radius:6px}
+@media (prefers-reduced-motion:no-preference){.bar>span,.week .fill{transition:width .4s ease,height .4s ease}}
+</style>
+
+<header class="strip">
+  <div class="wrap">
+    <div class="brand"><h1>CSE Flight Deck</h1><span class="tag">BS · COMPUTER SCIENCE &amp; ENGINEERING</span></div>
+    <nav class="tabs" role="tablist" id="tabs">
+      <button data-tab="overview" role="tab">Overview</button>
+      <button data-tab="plan" role="tab">Flight plan</button>
+      <button data-tab="study" role="tab">Study</button>
+      <button data-tab="career" role="tab">Career</button>
+      <button data-tab="timer" role="tab">Focus timer</button>
+    </nav>
+    <span class="save" id="save"><i></i><span>Saved in this browser</span></span>
+  </div>
+</header>
+
+<main class="wrap" id="app"></main>
+
+<script>
+(function(){
+"use strict";
+/* ---------- reference data ---------- */
+const GRADES={'A+':4,'A':4,'A-':3.7,'B+':3.3,'B':3,'B-':2.7,'C+':2.3,'C':2,'C-':1.7,'D+':1.3,'D':1,'D-':0.7,'F':0};
+const TERMS=['Fall','Spring','Summer'];
+const STATUS=['planned','progress','done'];
+const STATUS_LABEL={planned:'Planned',progress:'In progress',done:'Done'};
+
+const TOPICS=[
+ {id:'prog',name:'Programming in C/C++',re:/c\+\+|\bin c\b|\(c\b|intro\w*\s+to\s+programming|cse 130/i,
+  concepts:['Variables, types and operators','Control flow and loops','Functions and scope','Pointers and addresses','Arrays and strings','Dynamic memory (malloc/free, new/delete)','Structs and classes','Headers, compiling and linking','Debugging with gdb'],
+  cards:[['What does the & operator do to a variable in C?','Returns its memory address.'],['Stack vs heap allocation?','Stack memory is automatic and freed when the scope ends. Heap memory is allocated manually (malloc/new) and lives until freed.'],['What is a dangling pointer?','A pointer to memory that has already been freed or gone out of scope.'],['What does int *p = arr; point to?','The first element of arr. Arrays decay to a pointer to element 0.'],['Pass by value vs pass by reference in C++?','By value copies the argument. By reference (T&) aliases the caller\'s variable, so changes are visible to the caller.'],['What is a memory leak?','Heap memory that was allocated, never freed, and is no longer reachable.'],['What does #include do?','The preprocessor pastes the header\'s contents into the source file before compiling.']]},
+ {id:'oop',name:'Object-Oriented Programming (Java)',re:/java|object/i,
+  concepts:['Classes and objects','Encapsulation','Inheritance','Polymorphism','Interfaces and abstract classes','Exceptions','Generics','Collections framework','Unit tests with JUnit'],
+  cards:[['The four pillars of OOP?','Encapsulation, abstraction, inheritance, polymorphism.'],['Interface vs abstract class in Java?','A class can implement many interfaces but extend only one class. Abstract classes can hold state and constructors.'],['Overloading vs overriding?','Overloading: same name, different parameters, resolved at compile time. Overriding: a subclass replaces an inherited method, resolved at run time.'],['== vs .equals() on Strings?','== compares references. .equals() compares contents.'],['Checked vs unchecked exceptions?','Checked exceptions must be caught or declared (IOException). Unchecked ones extend RuntimeException.'],['What does static mean on a field?','One copy shared by the whole class instead of one per object.']]},
+ {id:'ds',name:'Data Structures',re:/data struct/i,
+  concepts:['Big-O analysis','Arrays and dynamic arrays','Linked lists','Stacks and queues','Hash tables','Trees and binary search trees','Heaps and priority queues','Graphs (adjacency list / matrix)','Balanced trees (AVL, red-black)'],
+  cards:[['Average lookup time in a hash table?','O(1) on average; O(n) in the worst case with many collisions.'],['Stack vs queue?','Stack is LIFO (push/pop). Queue is FIFO (enqueue/dequeue).'],['Search time in a balanced BST?','O(log n).'],['An inorder traversal of a BST gives?','The keys in sorted order.'],['Binary heap insert and extract-min?','Both O(log n). Peeking at the min is O(1).'],['Adjacency list vs adjacency matrix?','List: O(V+E) space, good for sparse graphs. Matrix: O(V²) space, O(1) edge lookup.'],['Amortized cost of appending to a dynamic array?','O(1), because the occasional resize doubles capacity.']]},
+ {id:'algo',name:'Algorithms',re:/algorithm/i,
+  concepts:['Sorting (merge, quick, heap)','Binary search','Recursion and recurrences','Divide and conquer','Greedy algorithms','Dynamic programming','BFS and DFS','Shortest paths (Dijkstra, Bellman-Ford)','Minimum spanning trees','NP-completeness'],
+  cards:[['Merge sort time and extra space?','O(n log n) time and O(n) extra space. It is stable.'],['Quicksort\'s worst case, and when it happens?','O(n²), when pivots are repeatedly the smallest or largest element.'],['Solve T(n) = 2T(n/2) + n.','Θ(n log n), by the master theorem.'],['When does Dijkstra\'s algorithm fail?','With negative edge weights. Use Bellman-Ford instead.'],['Two properties a problem needs for dynamic programming?','Optimal substructure and overlapping subproblems.'],['What does BFS find in an unweighted graph?','Shortest paths (fewest edges) from the source.'],['What does NP-complete mean?','The problem is in NP and every NP problem reduces to it in polynomial time.']]},
+ {id:'discrete',name:'Discrete Structures',re:/discrete/i,
+  concepts:['Propositional logic','Predicates and quantifiers','Proofs: direct, contradiction, induction','Sets and functions','Relations','Counting: permutations and combinations','Pigeonhole principle','Recurrence relations','Graph theory basics'],
+  cards:[['Contrapositive of p → q?','¬q → ¬p, which is logically equivalent.'],['The two steps of induction?','Prove the base case, then prove P(k) ⇒ P(k+1).'],['Formula for C(n, k)?','n! / (k!(n−k)!)'],['The pigeonhole principle?','If n+1 items go into n boxes, some box holds at least two.'],['Properties of an equivalence relation?','Reflexive, symmetric, transitive.'],['Negation of ∀x P(x)?','∃x ¬P(x)']]},
+ {id:'logic',name:'Digital Logic Design',re:/logic|digital/i,
+  concepts:['Number systems and two\'s complement','Boolean algebra','Logic gates','Karnaugh maps','Combinational circuits (mux, decoder, adder)','Latches and flip-flops','Registers and counters','Finite state machines','HDL (Verilog or VHDL)'],
+  cards:[['−5 in 8-bit two\'s complement?','11111011'],['De Morgan\'s laws?','¬(A·B) = ¬A + ¬B, and ¬(A+B) = ¬A·¬B.'],['Which gates are universal?','NAND and NOR.'],['Latch vs flip-flop?','A latch is level-sensitive. A flip-flop is edge-triggered.'],['Mealy vs Moore machine?','Moore outputs depend only on the state. Mealy outputs depend on state and input.'],['Full adder outputs?','Sum = A ⊕ B ⊕ Cin. Cout = AB + Cin(A ⊕ B).']]},
+ {id:'arch',name:'Computer Organization & Architecture',re:/architect|organization|assembly/i,
+  concepts:['ISA and assembly language','Datapath and control','Pipelining and hazards','Memory hierarchy','Caches (direct-mapped, set-associative)','Virtual memory and the TLB','I/O and interrupts','Performance: CPI and Amdahl\'s law'],
+  cards:[['CPU time formula?','Instruction count × CPI × clock period.'],['The three kinds of pipeline hazard?','Structural, data, and control.'],['Amdahl\'s law?','Speedup = 1 / ((1 − f) + f / s), where f is the fraction improved and s its speedup.'],['Temporal vs spatial locality?','Temporal: the same data is reused soon. Spatial: nearby addresses are used soon.'],['What does a TLB cache?','Virtual-to-physical page translations.'],['Which hazard does forwarding solve?','Most data hazards, except some load-use cases that still stall.']]},
+ {id:'os',name:'Operating Systems',re:/operating/i,
+  concepts:['Processes and threads','CPU scheduling','Synchronization: mutexes and semaphores','Deadlock','Memory management and paging','File systems','System calls','Concurrency bugs'],
+  cards:[['Process vs thread?','Processes have separate address spaces. Threads share their process\'s memory.'],['The four conditions for deadlock?','Mutual exclusion, hold and wait, no preemption, circular wait.'],['What is a race condition?','A result that depends on the timing of concurrent access to shared data.'],['Mutex vs semaphore?','A mutex is locked and unlocked by one owner. A semaphore is a counter that admits up to N.'],['What is thrashing?','The system spends most of its time paging instead of doing work.'],['What does fork() return?','0 in the child, the child\'s PID in the parent, −1 on error.']]},
+ {id:'net',name:'Computer Networks',re:/network/i,
+  concepts:['OSI and TCP/IP layers','Ethernet and switching','IP addressing and subnetting','Routing','TCP vs UDP','DNS','HTTP, HTTPS and TLS','Socket programming'],
+  cards:[['TCP vs UDP?','TCP is connection-oriented, reliable and ordered. UDP is connectionless and best-effort with low overhead.'],['The TCP handshake?','SYN, SYN-ACK, ACK.'],['Usable host addresses in a /24?','254'],['What does DNS do?','Resolves hostnames to IP addresses.'],['Which layer do routers work at?','The network layer (layer 3).'],['HTTPS default port?','443']]},
+ {id:'db',name:'Databases',re:/database|data management/i,
+  concepts:['Relational model','SQL: SELECT, JOIN, GROUP BY','ER modeling','Normalization (1NF to BCNF)','Indexes','Transactions and ACID','Query optimization basics'],
+  cards:[['What does ACID stand for?','Atomicity, Consistency, Isolation, Durability.'],['INNER vs LEFT JOIN?','INNER keeps matching rows only. LEFT keeps every left row, with NULLs where nothing matches.'],['WHERE vs HAVING?','WHERE filters rows before grouping. HAVING filters groups after.'],['Primary key vs foreign key?','A primary key uniquely identifies a row. A foreign key references another table\'s key.'],['What does an index trade off?','Faster reads for slower writes and extra storage.'],['What does 3NF require?','2NF, plus no non-key attribute depending transitively on the key.']]},
+ {id:'se',name:'Software Engineering',re:/software|capstone|senior design/i,
+  concepts:['Requirements and user stories','Agile and Scrum','UML and design','Design patterns','Version control with Git','Unit and integration testing','CI/CD','Code review'],
+  cards:[['Unit vs integration test?','A unit test checks one component in isolation. An integration test checks components working together.'],['git merge vs git rebase?','Merge keeps history and adds a merge commit. Rebase replays commits onto a new base for a linear history.'],['What is a sprint?','A fixed time box, often two weeks, that delivers a usable increment.'],['The Singleton pattern?','Ensures a class has one instance with a global access point.'],['What is technical debt?','The future cost of shortcuts taken now.'],['The S in SOLID?','Single Responsibility: a class should have one reason to change.']]},
+ {id:'theory',name:'Theory of Computation',re:/theory|automata|formal lang/i,
+  concepts:['DFAs and NFAs','Regular expressions','Pumping lemma','Context-free grammars','Pushdown automata','Turing machines','Decidability','Complexity classes'],
+  cards:[['Are DFAs and NFAs equally powerful?','Yes. Both recognize exactly the regular languages.'],['Is {aⁿbⁿ} regular?','No, by the pumping lemma. It is context-free.'],['What machine recognizes context-free languages?','A pushdown automaton.'],['Is the halting problem decidable?','No.'],['P vs NP in one line?','Whether every problem whose answer can be checked quickly can also be solved quickly.']]},
+ {id:'calc',name:'Calculus & Differential Equations',re:/calc|differential/i,
+  concepts:['Limits','Derivatives and rules','Integrals and techniques','Series and convergence','Partial derivatives','Multiple integrals','First-order ODEs','Second-order linear ODEs','Laplace transforms'],
+  cards:[['d/dx of sin(x)?','cos(x)'],['The chain rule?','d/dx f(g(x)) = f′(g(x)) · g′(x)'],['∫ 1/x dx?','ln|x| + C'],['Integration by parts?','∫u dv = uv − ∫v du'],['Solution of y′ = ky?','y = Ce^(kx)'],['When does a geometric series converge?','When |r| < 1. Its sum is a / (1 − r).']]},
+ {id:'linalg',name:'Linear Algebra',re:/linear|matri/i,
+  concepts:['Vectors and matrices','Matrix multiplication','Gaussian elimination','Determinants','Inverses','Vector spaces and bases','Eigenvalues and eigenvectors'],
+  cards:[['When is a square matrix invertible?','When its determinant is nonzero (it has full rank).'],['Definition of an eigenvector?','A nonzero v with Av = λv.'],['Is matrix multiplication commutative?','No. In general AB ≠ BA.'],['Rank of a matrix?','The number of linearly independent rows (or columns).'],['(AB)ᵀ equals?','BᵀAᵀ']]},
+ {id:'prob',name:'Probability & Statistics',re:/probab|statist/i,
+  concepts:['Probability rules','Conditional probability and Bayes','Random variables','Expectation and variance','Common distributions','Sampling and the CLT','Hypothesis testing'],
+  cards:[['Bayes\' theorem?','P(A|B) = P(B|A) · P(A) / P(B)'],['E[X + Y]?','E[X] + E[Y], always.'],['Var(aX)?','a² · Var(X)'],['The central limit theorem?','Means of large samples are approximately normal, whatever the source distribution.'],['P(A ∩ B) for independent A and B?','P(A) · P(B)']]},
+ {id:'phys',name:'Physics (Mechanics & E&M)',re:/phys|circuit|electr/i,
+  concepts:['Kinematics','Newton\'s laws','Work and energy','Momentum','Electric fields','Circuits: Ohm and Kirchhoff','Magnetism'],
+  cards:[['Newton\'s second law?','F = ma'],['Ohm\'s law?','V = IR'],['Kirchhoff\'s current law?','Current into a node equals current out of it.'],['Kinetic energy?','½mv²'],['Resistors in parallel?','1/R = 1/R₁ + 1/R₂ + …']]},
+ {id:'sec',name:'Cybersecurity',re:/secur|crypt/i,
+  concepts:['The CIA triad','Authentication and password hashing','Symmetric vs asymmetric crypto','OWASP Top 10','Buffer overflows','Network security'],
+  cards:[['The CIA triad?','Confidentiality, Integrity, Availability.'],['Symmetric vs asymmetric encryption?','Symmetric uses one shared key (AES). Asymmetric uses a public/private key pair (RSA).'],['Why salt password hashes?','So identical passwords hash differently and precomputed tables stop working.'],['How do you prevent SQL injection?','Parameterized queries (prepared statements).'],['What is a buffer overflow?','Writing past a buffer\'s end and overwriting nearby memory, such as a return address.']]},
+ {id:'ml',name:'AI & Machine Learning',re:/intelligen|machine learn|\bai\b|data mining/i,
+  concepts:['Search and heuristics','Supervised vs unsupervised learning','Regression and classification','Overfitting and regularization','Train / validation / test splits','Neural networks','Evaluation metrics'],
+  cards:[['What is overfitting?','The model fits noise in the training data and generalizes poorly.'],['Precision vs recall?','Precision: of predicted positives, how many are right. Recall: of actual positives, how many were found.'],['Supervised vs unsupervised learning?','Supervised learns from labeled data. Unsupervised finds structure in unlabeled data.'],['When is A* search optimal?','When its heuristic is admissible (never overestimates).'],['Why keep a validation set?','To tune hyperparameters without touching the test set.']]}
+];
+const TOPIC_BY_ID=Object.fromEntries(TOPICS.map(t=>[t.id,t]));
+
+const TRACKS=[
+ {id:'swe',name:'Software engineer',topics:['ds','algo','se','db','os','net'],
+  skills:['Data structures and algorithms fluency','Git, branching and code review','One backend language in depth (Java, Python, Go or C#)','A web stack (React or similar plus a REST API)','Automated testing','SQL and data modeling','Cloud basics (deploy a service)'],
+  projects:['Full-stack app deployed with a public URL','Contribution merged into an open-source project','A tool other students actually use'],
+  certs:['AWS Certified Cloud Practitioner (optional)']},
+ {id:'emb',name:'Embedded / computer engineer',topics:['prog','logic','arch','os','phys'],
+  skills:['C for microcontrollers','Reading datasheets and schematics','Digital logic and timing','Computer architecture','RTOS concepts','Serial buses (UART, SPI, I²C)','Oscilloscope and logic analyzer'],
+  projects:['Microcontroller project (Arduino, STM32 or ESP32) with sensors','FPGA design in Verilog or VHDL','Bare-metal driver for a peripheral'],
+  certs:['None required; a strong project portfolio matters most']},
+ {id:'sec',name:'Cybersecurity',topics:['sec','net','os','prog','discrete'],
+  skills:['Networking and packet analysis (Wireshark)','Linux command line','Cryptography fundamentals','Web vulnerabilities (OWASP Top 10)','Scripting in Python or Bash','Incident response basics'],
+  projects:['Compete in CTFs and write up solutions','Home lab with vulnerable VMs','Security audit of one of your own apps'],
+  certs:['CompTIA Security+','CompTIA Network+ (optional)']},
+ {id:'data',name:'Data / machine learning',topics:['ml','prob','linalg','db','algo'],
+  skills:['Python with NumPy and pandas','SQL','Probability and statistics','Linear algebra','Model training and evaluation','Data visualization','An ML framework (PyTorch or scikit-learn)'],
+  projects:['End-to-end ML project on a real dataset','Kaggle competition entry','Dashboard or data pipeline'],
+  certs:['None required; published notebooks and projects carry more weight']},
+ {id:'cloud',name:'Cloud / DevOps / systems',topics:['os','net','se','sec','arch'],
+  skills:['Linux administration','Networking and DNS','Containers (Docker)','Orchestration (Kubernetes basics)','Infrastructure as code (Terraform)','CI/CD pipelines','Monitoring and logging'],
+  projects:['Containerized app with a CI/CD pipeline','Infrastructure defined in Terraform','Self-hosted service with monitoring'],
+  certs:['AWS Solutions Architect – Associate','Linux Foundation LFCS (optional)']}
+];
+
+const MILESTONES={
+ 1:['Set up GitHub and LinkedIn profiles','Write a one-page résumé and get it reviewed','Join a student org (ACM, IEEE, hackathon club)','Go to the fall career fair just to practice','Finish one small personal coding project','Keep your GPA strong; co-op employers check it'],
+ 2:['Complete the Speed School co-op preparation steps','Build two portfolio projects','Solve 50 interview-style problems','Do two mock interviews','Apply to 20+ co-op positions','Choose a career track to aim your electives at'],
+ 3:['Finish your co-op rotations','Ask co-op supervisors for references','Solve 150 interview-style problems','Choose technical electives that match your track','Decide whether to pursue the M.Eng. or grad school','Update your résumé after each rotation'],
+ 4:['Do strong work on the capstone; it becomes your best interview story','Apply for full-time roles in Aug–Oct','Practice system design basics','Compare and negotiate offers','Line up a graduate program or start date']
+};
+const PATTERNS=['Arrays and hashing','Two pointers','Sliding window','Stack','Binary search','Linked lists','Trees','Tries','Heaps / priority queues','Backtracking','Graphs (BFS / DFS)','1-D dynamic programming','2-D dynamic programming','Greedy','Intervals','Bit manipulation','Behavioral answers in STAR format','System design basics'];
+
+/* Starter plan: placeholder codes (3xx / 4xx) where the exact UofL code is not confirmed. Import the catalog text to replace it. */
+const STARTER=[
+ [1,'Fall','CSE 130','Introduction to Programming (C/C++)',3],[1,'Fall','MATH 205','Calculus I',4],[1,'Fall','ENGR 101','Introduction to Engineering',2],[1,'Fall','ENGL 101','Introduction to College Writing',3],[1,'Fall','GEN ED','Social & Behavioral Sciences',3],
+ [1,'Spring','CSE 220','Object-Oriented Programming (Java)',3],[1,'Spring','MATH 206','Calculus II',4],[1,'Spring','ENGL 102','Intermediate College Writing',3],[1,'Spring','PHYS 298','Physics I (Mechanics)',4],[1,'Spring','ENGR 102','Engineering Methods & Tools',3],
+ [2,'Fall','CSE 3xx','Data Structures',3],[2,'Fall','CSE 3xx','Discrete Structures',3],[2,'Fall','ENGR 201','Calculus III',4],[2,'Fall','PHYS 299','Physics II (Electricity & Magnetism)',4],[2,'Fall','GEN ED','Arts & Humanities',3],
+ [2,'Spring','CSE 3xx','Digital Logic Design',4],[2,'Spring','CSE 3xx','Algorithms',3],[2,'Spring','ENGR 205','Differential Equations',3],[2,'Spring','MATH 3xx','Linear Algebra',3],[2,'Spring','GEN ED','Cardinal Core elective',3],
+ [2,'Summer','CO-OP','Co-op rotation I',0],
+ [3,'Fall','CSE 3xx','Computer Organization & Architecture',3],[3,'Fall','CSE 3xx','Software Engineering',3],[3,'Fall','MATH 3xx','Probability & Statistics',3],[3,'Fall','GEN ED','Arts & Humanities',3],[3,'Fall','CSE 3xx','Theory of Computation',3],
+ [3,'Spring','CO-OP','Co-op rotation II',0],[3,'Summer','CO-OP','Co-op rotation III',0],
+ [4,'Fall','CSE 4xx','Operating Systems',3],[4,'Fall','CSE 4xx','Computer Networks',3],[4,'Fall','CSE ELEC','Technical elective',3],[4,'Fall','CSE ELEC','Technical elective',3],[4,'Fall','GEN ED','Social & Behavioral Sciences',3],
+ [4,'Spring','CSE 4xx','Database Systems',3],[4,'Spring','CSE 4xx','Senior Capstone Design',3],[4,'Spring','CSE ELEC','Technical elective',3],[4,'Spring','CSE ELEC','Technical elective',3],[4,'Spring','GEN ED','Cardinal Core elective',3]
+];
+
+/* ---------- state ---------- */
+const uid=()=>Math.random().toString(36).slice(2,10);
+function starterPlan(){return STARTER.map(([y,t,c,ti,cr])=>({id:uid(),year:y,term:t,code:c,title:ti,cr,status:'planned',grade:''}))}
+function freshState(){return {v:1,starter:true,plan:starterPlan(),concepts:{},cards:{},career:{track:'swe',checks:{}},log:{},topic:null}}
+function normalize(s){
+  const f=freshState(); if(!s||typeof s!=='object') return f;
+  return {v:1,starter:!!s.starter,plan:Array.isArray(s.plan)?s.plan.filter(c=>c&&c.id).map(c=>({id:String(c.id),year:+c.year||1,term:TERMS.includes(c.term)?c.term:'Fall',code:String(c.code||''),title:String(c.title||''),cr:Math.max(0,+c.cr||0),status:STATUS.includes(c.status)?c.status:'planned',grade:GRADES[c.grade]!==undefined?c.grade:''})):f.plan,
+    concepts:s.concepts&&typeof s.concepts==='object'?s.concepts:{},cards:s.cards&&typeof s.cards==='object'?s.cards:{},
+    career:{track:(s.career&&TRACKS.some(t=>t.id===s.career.track))?s.career.track:'swe',checks:(s.career&&s.career.checks)||{}},
+    log:s.log&&typeof s.log==='object'?s.log:{},topic:s.topic||null};
+}
+const LS='cse-flight-deck-v1';
+let state=freshState();
+try{const raw=localStorage.getItem(LS); if(raw) state=normalize(JSON.parse(raw));}catch(e){}
+let ui={tab:'overview',edit:false,importOpen:false,importText:'',importPreview:null,confirmReset:false,reveal:false,cardKey:null};
+try{const t=localStorage.getItem(LS+'-tab'); if(t) ui.tab=t;}catch(e){}
+
+/* ---------- persistence: account db (private per viewer) with browser fallback ---------- */
+let dbRef=null, saveTimer=null, saveChain=Promise.resolve(), dirty=false;
+const saveEl=document.getElementById('save');
+function badge(kind,text){saveEl.className='save'+(kind?' '+kind:'');saveEl.lastElementChild.textContent=text}
+function persist(){
+  dirty=true;
+  try{localStorage.setItem(LS,JSON.stringify(state))}catch(e){}
+  if(!dbRef){return}
+  badge('','Saving…');
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    const body={json:JSON.stringify(state),updated:Date.now()};
+    saveChain=saveChain.then(()=>dbRef.set(body)).then(()=>badge('ok','Saved to your account')).catch(e=>{
+      badge('err',e&&e.code==='quota_exceeded'?'Account storage is full':'Not saved to account; kept in this browser');
+    });
+  },700);
+}
+async function initStore(){
+  try{
+    if(!window.claude||typeof window.claude.use!=='function') return;
+    const [db,user]=await Promise.all([window.claude.use('db'),window.claude.use('user')]);
+    if(!db||!user) return;
+    const id=await user.id(); if(!id) return;
+    const ref=db.doc('data/users/'+id+'/state');
+    const snap=await Promise.race([ref.get(),new Promise((_,rej)=>setTimeout(()=>rej({code:'timeout'}),10000))]);
+    dbRef=ref;
+    if(snap.exists&&!dirty){
+      const d=snap.data(); if(d&&typeof d.json==='string'){state=normalize(JSON.parse(d.json)); try{localStorage.setItem(LS,d.json)}catch(e){} render();}
+      badge('ok','Saved to your account');
+    }else{ persist(); }
+  }catch(e){ badge('', 'Saved in this browser'); }
+}
+
+/* ---------- helpers ---------- */
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const app=document.getElementById('app');
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const dayKey=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+function semesters(){
+  const map=new Map();
+  for(const c of state.plan){const k=c.year+'|'+c.term; if(!map.has(k)) map.set(k,{year:c.year,term:c.term,courses:[]}); map.get(k).courses.push(c)}
+  return [...map.values()].sort((a,b)=>a.year-b.year||TERMS.indexOf(a.term)-TERMS.indexOf(b.term));
+}
+const isCoop=c=>/co-?op/i.test(c.code+' '+c.title);
+function stats(){
+  let total=0,done=0,prog=0,q=0,gcr=0;
+  for(const c of state.plan){total+=c.cr; if(c.status==='done'){done+=c.cr; if(c.grade&&c.cr>0){q+=GRADES[c.grade]*c.cr; gcr+=c.cr}} if(c.status==='progress') prog+=c.cr}
+  return {total,done,prog,gpa:gcr?q/gcr:null};
+}
+function currentSem(){
+  const sems=semesters();
+  return sems.find(s=>s.courses.some(c=>c.status==='progress'))||sems.find(s=>s.courses.some(c=>c.status!=='done'))||sems[sems.length-1]||null;
+}
+function topicsFor(c){return TOPICS.filter(t=>t.re.test(c.code+' '+c.title)).map(t=>t.id)}
+function topicMastery(t){
+  const ch=(state.concepts[t.id]||[]).length/t.concepts.length;
+  const cb=t.cards.reduce((a,_,i)=>a+Math.min(4,state.cards[t.id+':'+i]||0),0)/(t.cards.length*4);
+  return Math.round((ch*0.5+cb*0.5)*100);
+}
+function weekMinutes(){let m=0;const d=new Date();for(let i=0;i<7;i++){const k=dayKey(d);m+=(state.log[k]&&state.log[k].total)||0;d.setDate(d.getDate()-1)}return m}
+function streak(){let n=0;const d=new Date();if(!(state.log[dayKey(d)]&&state.log[dayKey(d)].total)) d.setDate(d.getDate()-1);while(state.log[dayKey(d)]&&state.log[dayKey(d)].total){n++;d.setDate(d.getDate()-1)}return n}
+function addMinutes(min,course){
+  const k=today(); const e=state.log[k]||{total:0,by:{}}; e.total+=min; if(course) e.by[course]=(e.by[course]||0)+min; state.log[k]=e;
+  const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-180); const ck=dayKey(cutoff);
+  for(const key of Object.keys(state.log)) if(key<ck) delete state.log[key];
+  persist();
+}
+const pct=(a,b)=>b?Math.round(a/b*100):0;
+
+/* ---------- views ---------- */
+function vOverview(){
+  const s=stats(), cur=currentSem(), sems=semesters();
+  const curIdx=cur?sems.indexOf(cur):-1;
+  const inProg=state.plan.filter(c=>c.status==='progress');
+  const yr=cur?Math.min(4,cur.year):1;
+  const ms=(MILESTONES[yr]||[]).map((m,i)=>({m,k:'m:'+yr+':'+i})).filter(x=>!state.career.checks[x.k]).slice(0,3);
+  const studyTopics=[...new Set(inProg.flatMap(topicsFor))].map(id=>TOPIC_BY_ID[id]).sort((a,b)=>topicMastery(a)-topicMastery(b)).slice(0,4);
+  const track=TRACKS.find(t=>t.id===state.career.track);
+  return `<section class="panel">
+  ${state.starter?`<div class="note"><b>Starter plan loaded.</b> The UofL catalog was unreachable when this app was built, so the plan uses placeholder codes like <span class="mono">CSE 3xx</span>. Open <b>Flight plan → Import from catalog</b> and paste the flight plan text from the <a href="https://catalog.louisville.edu/undergraduate/majors/computer-engineering-science-bs/#flightplantext" target="_blank" rel="noopener">catalog page</a> to load your exact courses.</div>`:''}
+  <div class="gauges">
+    <div class="gauge"><span class="label">Credits complete</span><span class="v">${s.done}<small> / ${s.total}</small></span><div class="bar done"><span style="width:${pct(s.done,s.total)}%"></span></div></div>
+    <div class="gauge"><span class="label">GPA</span><span class="v">${s.gpa===null?'—':s.gpa.toFixed(2)}</span><span class="muted" style="font-size:.8rem">${s.gpa===null?'Add grades to finished courses':'From graded, finished courses'}</span></div>
+    <div class="gauge"><span class="label">Current leg</span><span class="v" style="font-size:1.4rem">${cur?('Year '+cur.year+' · '+cur.term):'—'}</span><span class="muted" style="font-size:.8rem">${s.prog} credits in progress</span></div>
+    <div class="gauge"><span class="label">Study this week</span><span class="v">${Math.round(weekMinutes()/6)/10}<small> h</small></span><span class="muted" style="font-size:.8rem">${streak()} day streak</span></div>
+  </div>
+  <div class="card"><div class="row" style="justify-content:space-between;margin-bottom:8px"><h2>Route to graduation</h2><span class="label">${sems.length} legs</span></div>
+    <div class="route-scroll"><div class="route">${sems.map((sm,i)=>{const cr=sm.courses.reduce((a,c)=>a+c.cr,0);const dn=sm.courses.reduce((a,c)=>a+(c.status==='done'?c.cr:0),0);const coop=sm.courses.every(isCoop);const allDone=sm.courses.every(c=>c.status==='done');
+      const cls=(allDone?'past':'')+(i===curIdx&&!allDone?' now':'')+(coop?' coop':'');
+      return `<div class="wp ${cls}"><div class="dot">${coop?'CO':pct(dn,cr)+'%'}</div><div class="t">Y${sm.year}<br>${sm.term}</div></div>`}).join('')}</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card" style="display:grid;gap:14px">
+      <h2>On your desk now</h2>
+      ${inProg.length?`<ul class="list">${inProg.map(c=>`<li class="li"><span class="code">${esc(c.code)}</span><span>${esc(c.title)} <span class="muted mono" style="font-size:.8rem">· ${c.cr} cr</span></span></li>`).join('')}</ul>`:`<p class="muted" style="margin:0">No courses marked in progress. On the Flight plan tab, click a course's status chip to set it to <b>In progress</b>.</p>`}
+      ${studyTopics.length?`<div><div class="label" style="margin-bottom:6px">Weakest topics in current courses</div><div class="topics">${studyTopics.map(t=>{const m=topicMastery(t);return `<button class="topic-btn" data-act="goTopic" data-id="${t.id}"><span>${esc(t.name)}</span><span class="pct">${m}%</span><span class="bar"><span style="width:${m}%"></span></span></button>`}).join('')}</div></div>`:''}
+    </div>
+    <div class="card" style="display:grid;gap:14px;align-content:start">
+      <h2>Career checkpoints · Year ${yr}</h2>
+      ${ms.length?`<ul class="list">${ms.map(x=>`<li><label class="li" style="cursor:pointer"><input type="checkbox" data-act="check" data-k="${x.k}" style="margin-top:4px;accent-color:var(--done)"><span>${esc(x.m)}</span></label></li>`).join('')}</ul>`:`<p class="muted" style="margin:0">Every Year ${yr} checkpoint is done.</p>`}
+      <p class="muted" style="margin:0;font-size:.88rem">Aiming for <b style="color:var(--ink)">${esc(track.name)}</b>. Change it on the Career tab.</p>
+    </div>
+  </div></section>`;
+}
+
+function courseRow(c){
+  if(ui.edit) return `<div class="course edit">
+    <input data-f="code" data-id="${c.id}" value="${esc(c.code)}" aria-label="Course code">
+    <input data-f="title" data-id="${c.id}" value="${esc(c.title)}" aria-label="Course title">
+    <input data-f="cr" data-id="${c.id}" value="${c.cr}" inputmode="numeric" aria-label="Credits">
+    <button class="btn ghost small" data-act="del" data-id="${c.id}" aria-label="Remove ${esc(c.code)}">✕</button></div>`;
+  return `<div class="course">
+    <button class="status-btn" data-act="cycle" data-id="${c.id}" title="Click to change status"><span class="chip ${c.status}">${STATUS_LABEL[c.status]}</span></button>
+    <span class="code">${esc(c.code)}</span><span class="title">${esc(c.title)}</span><span class="cr">${c.cr} cr</span>
+    ${c.status==='done'&&c.cr>0?`<div class="extra"><span class="muted" style="font-size:.8rem">Grade</span><select class="grade" data-f="grade" data-id="${c.id}"><option value="">—</option>${Object.keys(GRADES).map(g=>`<option${c.grade===g?' selected':''}>${g}</option>`).join('')}</select></div>`:''}
+  </div>`;
+}
+function vPlan(){
+  const s=stats();
+  const maxYear=Math.max(4,...state.plan.map(c=>c.year));
+  let years='';
+  for(let y=1;y<=maxYear;y++){
+    const terms=TERMS.filter(t=>t!=='Summer'||ui.edit||state.plan.some(c=>c.year===y&&c.term===t));
+    const ycr=state.plan.filter(c=>c.year===y).reduce((a,c)=>a+c.cr,0);
+    years+=`<div class="year"><div class="year-head"><h3>Year ${y}</h3><span class="mono muted" style="font-size:.8rem">${ycr} credits</span></div><div class="terms">${terms.map(t=>{
+      const cs=state.plan.filter(c=>c.year===y&&c.term===t);const cr=cs.reduce((a,c)=>a+c.cr,0);
+      return `<div class="term"><div class="term-head"><b>${t}</b><span class="mono">${cr} cr</span></div>${cs.length?cs.map(courseRow).join(''):'<div class="empty-term">No courses this term.</div>'}
+      ${ui.edit?`<div style="padding:8px 14px"><button class="btn small" data-act="add" data-y="${y}" data-t="${t}">+ Add course</button></div>`:''}</div>`}).join('')}</div></div>`;
+  }
+  const prev=ui.importPreview;
+  return `<section class="panel">
+    <div class="row" style="justify-content:space-between">
+      <div><h2>Flight plan</h2><p class="muted" style="margin:2px 0 0">${s.done} of ${s.total} credits complete. Click a status chip to move a course from Planned → In progress → Done.</p></div>
+      <div class="plan-tools">
+        <button class="btn${ui.edit?' primary':''}" data-act="toggleEdit">${ui.edit?'Finish editing':'Edit courses'}</button>
+        <button class="btn" data-act="toggleImport">${ui.importOpen?'Close import':'Import from catalog'}</button>
+        ${ui.edit?`<button class="btn" data-act="addYear">+ Add year</button>`:''}
+      </div>
+    </div>
+    ${ui.importOpen?`<div class="card" style="display:grid;gap:12px">
+      <h3>Import your flight plan</h3>
+      <p class="muted" style="margin:0;font-size:.9rem">Open the <a href="https://catalog.louisville.edu/undergraduate/majors/computer-engineering-science-bs/#flightplantext" target="_blank" rel="noopener">Flight Plan tab in the catalog</a>, select the whole table (year headings included), copy it, and paste it below. Lines like <span class="mono">CSE 130  Introduction to …  3</span> become courses; "Fall", "Spring", "Summer" and "First Year"/"Year 2" headings place them.</p>
+      <textarea id="importText" placeholder="First Year&#10;Fall&#10;CSE 130  Introduction to Programming  3&#10;MATH 205  Calculus I  4&#10;…">${esc(ui.importText)}</textarea>
+      <div class="row"><button class="btn" data-act="parse">Preview import</button>${prev?`<span class="muted">${prev.length} courses found across ${new Set(prev.map(c=>c.year+c.term)).size} terms.</span>`:''}</div>
+      ${prev&&prev.length?`<div style="max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:6px">${prev.map(c=>`<div class="course" style="grid-template-columns:84px 76px minmax(0,1fr) auto"><span class="mono muted" style="font-size:.78rem">Y${c.year} ${c.term}</span><span class="code">${esc(c.code)}</span><span class="title">${esc(c.title)}</span><span class="cr">${c.cr} cr</span></div>`).join('')}</div>
+        <div class="row"><button class="btn primary" data-act="applyImport">Replace my plan with these ${prev.length} courses</button><span class="muted" style="font-size:.85rem">Status and grades carry over for matching course codes.</span></div>`:''}
+      ${prev&&!prev.length?`<p style="margin:0;color:var(--warn)">No courses found. Make sure the paste includes lines with a course code and a credit number, such as "CSE 130 Introduction to Programming 3".</p>`:''}
+    </div>`:''}
+    ${years}
+    <div class="row">${ui.confirmReset?`<div class="confirm"><span>Reset the plan to the starter version? Your statuses and grades will be lost.</span><button class="btn small primary" data-act="doReset">Reset plan</button><button class="btn small" data-act="cancelReset">Cancel</button></div>`:`<button class="btn ghost small" data-act="askReset">Reset to starter plan</button>`}</div>
+  </section>`;
+}
+
+function vStudy(){
+  const inProg=state.plan.filter(c=>c.status==='progress');
+  const curIds=[...new Set(inProg.flatMap(topicsFor))];
+  const planIds=new Set(state.plan.flatMap(topicsFor));
+  let sel=TOPIC_BY_ID[state.topic]||TOPIC_BY_ID[curIds[0]]||TOPICS[0];
+  const btn=t=>{const m=topicMastery(t);return `<button class="topic-btn" data-act="topic" data-id="${t.id}" aria-pressed="${t.id===sel.id}"><span>${esc(t.name)}</span><span class="pct">${m}%</span><span class="bar"><span style="width:${m}%"></span></span></button>`};
+  const others=TOPICS.filter(t=>!curIds.includes(t.id));
+  const checked=new Set(state.concepts[sel.id]||[]);
+  const linked=state.plan.filter(c=>topicsFor(c).includes(sel.id));
+  // pick card: lowest box, stable within reveal
+  let key=ui.cardKey;
+  if(!key||!key.startsWith(sel.id+':')){key=pickCard(sel)}
+  ui.cardKey=key;
+  const ci=+key.split(':')[1], card=sel.cards[ci], box=state.cards[key]||0;
+  const boxCounts=[0,0,0,0,0]; sel.cards.forEach((_,i)=>boxCounts[Math.min(4,state.cards[sel.id+':'+i]||0)]++);
+  return `<section class="panel"><div class="study">
+    <aside class="topics">
+      ${curIds.length?`<div class="label" style="padding:4px 10px">From courses in progress</div>${curIds.map(id=>btn(TOPIC_BY_ID[id])).join('')}<div class="label" style="padding:12px 10px 4px">All topics</div>`:`<div class="label" style="padding:4px 10px">Topics</div>`}
+      ${others.map(t=>btn(t)+(planIds.has(t.id)?'':'')).join('')}
+    </aside>
+    <div style="display:grid;gap:20px;min-width:0">
+      <div class="card" style="display:grid;gap:12px">
+        <div class="row" style="justify-content:space-between"><h2>${esc(sel.name)}</h2><span class="mono muted">${topicMastery(sel)}% mastered</span></div>
+        ${linked.length?`<p class="muted" style="margin:0;font-size:.88rem">In your plan: ${linked.map(c=>`<span class="mono">${esc(c.code)}</span> ${esc(c.title)}`).join(' · ')}</p>`:`<p class="muted" style="margin:0;font-size:.88rem">Not linked to a course in your plan yet. Useful for interviews or electives.</p>`}
+        <div class="label">Concepts · tick when you can explain it without notes</div>
+        <ul class="checks">${sel.concepts.map((c,i)=>`<li><label><input type="checkbox" data-act="concept" data-id="${sel.id}" data-i="${i}"${checked.has(i)?' checked':''}><span>${esc(c)}</span></label></li>`).join('')}</ul>
+      </div>
+      <div class="card" style="display:grid;gap:12px">
+        <div class="row" style="justify-content:space-between"><h3>Flashcard drill</h3><span class="mono muted" style="font-size:.8rem">Card ${ci+1} of ${sel.cards.length} · box ${box}</span></div>
+        <div class="flash"><div class="q">${esc(card[0])}</div>${ui.reveal?`<div class="a">${esc(card[1])}</div>`:''}</div>
+        <div class="row">${ui.reveal?`<button class="btn" data-act="miss">Missed it</button><button class="btn primary" data-act="hit">Got it</button>`:`<button class="btn primary" data-act="reveal">Show answer</button><button class="btn ghost" data-act="skip">Skip</button>`}</div>
+        <div><div class="label" style="margin-bottom:4px">Cards per box (0 = new or missed, 4 = solid)</div><div class="boxes">${boxCounts.map((n,i)=>`<span style="${n?`background:${i>=3?'var(--done-soft)':i>=1?'var(--prog-soft)':'var(--accent-soft)'};color:var(--ink)`:''}">${i}: ${n}</span>`).join('')}</div></div>
+      </div>
+    </div></div></section>`;
+}
+function pickCard(t){
+  let min=99, opts=[]; t.cards.forEach((_,i)=>{const b=state.cards[t.id+':'+i]||0; if(b<min){min=b;opts=[i]} else if(b===min) opts.push(i)});
+  const prev=ui.cardKey&&ui.cardKey.startsWith(t.id+':')?+ui.cardKey.split(':')[1]:-1;
+  const pool=opts.length>1?opts.filter(i=>i!==prev):opts;
+  return t.id+':'+pool[Math.floor(Math.random()*pool.length)];
+}
+
+function checkList(items,prefix){return `<ul class="list">${items.map((m,i)=>{const k=prefix+i;return `<li><label class="li" style="cursor:pointer"><input type="checkbox" data-act="check" data-k="${k}"${state.career.checks[k]?' checked':''} style="margin-top:4px;accent-color:var(--done)"><span>${esc(m)}</span></label></li>`}).join('')}</ul>`}
+function countChecked(prefix,n){let c=0;for(let i=0;i<n;i++) if(state.career.checks[prefix+i]) c++;return c}
+function vCareer(){
+  const t=TRACKS.find(x=>x.id===state.career.track);
+  const topicRows=t.topics.map(id=>{const tp=TOPIC_BY_ID[id];const m=topicMastery(tp);const inPlan=state.plan.filter(c=>topicsFor(c).includes(id));
+    return `<li class="li" style="align-items:center"><span style="flex:1;min-width:0">${esc(tp.name)}<br><span class="muted" style="font-size:.8rem">${inPlan.length?inPlan.map(c=>esc(c.code)).join(', '):'Not in your plan: look for an elective'}</span></span><span class="mono muted" style="font-size:.8rem;width:40px;text-align:right">${m}%</span></li>`}).join('');
+  const pk='ip:', pd=countChecked(pk,PATTERNS.length);
+  return `<section class="panel">
+    <div style="display:grid;gap:10px"><h2>Where are you headed?</h2><div class="tracks">${TRACKS.map(x=>`<button class="track-btn" data-act="track" data-id="${x.id}" aria-pressed="${x.id===t.id}">${esc(x.name)}</button>`).join('')}</div></div>
+    <div class="grid2">
+      <div class="card" style="display:grid;gap:16px">
+        <div class="row" style="justify-content:space-between"><h3>Skills for ${esc(t.name.toLowerCase())}</h3><span class="mono muted">${countChecked('sk:'+t.id+':',t.skills.length)}/${t.skills.length}</span></div>
+        ${checkList(t.skills,'sk:'+t.id+':')}
+        <div class="row" style="justify-content:space-between"><h3>Portfolio projects</h3><span class="mono muted">${countChecked('pj:'+t.id+':',t.projects.length)}/${t.projects.length}</span></div>
+        ${checkList(t.projects,'pj:'+t.id+':')}
+        <div><div class="label" style="margin-bottom:4px">Certifications</div><p style="margin:0">${t.certs.map(esc).join(' · ')}</p></div>
+      </div>
+      <div class="card" style="display:grid;gap:12px;align-content:start">
+        <h3>Coursework that feeds this track</h3>
+        <ul class="list">${topicRows}</ul>
+        <p class="muted" style="margin:0;font-size:.85rem">Percentages are your mastery on the Study tab.</p>
+      </div>
+    </div>
+    <div class="card"><h2 style="margin-bottom:6px">Four-year career timeline</h2><div class="timeline">${[1,2,3,4].map(y=>`<div class="tl-year"><div><div class="yr">Year ${y}</div><div class="mono muted" style="font-size:.8rem">${countChecked('m:'+y+':',MILESTONES[y].length)}/${MILESTONES[y].length}</div></div>${checkList(MILESTONES[y],'m:'+y+':')}</div>`).join('')}</div>
+      <p class="muted" style="margin:8px 0 0;font-size:.85rem">Speed School requires co-op rotations for this degree. Confirm the exact timing and steps with the co-op office.</p></div>
+    <div class="card" style="display:grid;gap:12px">
+      <div class="row" style="justify-content:space-between"><h2>Technical interview prep</h2><span class="mono muted">${pd}/${PATTERNS.length} patterns</span></div>
+      <div class="bar done"><span style="width:${pct(pd,PATTERNS.length)}%"></span></div>
+      <p class="muted" style="margin:0;font-size:.88rem">Tick a pattern once you've solved about five problems with it without hints.</p>
+      <ul class="checks">${PATTERNS.map((p,i)=>`<li><label><input type="checkbox" data-act="check" data-k="${pk+i}"${state.career.checks[pk+i]?' checked':''}><span>${esc(p)}</span></label></li>`).join('')}</ul>
+    </div>
+  </section>`;
+}
+
+/* timer (not persisted) */
+const T={mode:'focus',len:25,brk:5,left:25*60,running:false,end:0,course:'',iv:null};
+function vTimer(){
+  const opts=state.plan.filter(c=>c.status==='progress');
+  const list=(opts.length?opts:state.plan.filter(c=>c.cr>0&&!isCoop(c)));
+  if(!T.course&&list[0]) T.course=list[0].code;
+  const days=[];const d=new Date();d.setDate(d.getDate()-6);
+  for(let i=0;i<7;i++){const k=dayKey(d);days.push({k,label:d.toLocaleDateString(undefined,{weekday:'short'}),m:(state.log[k]&&state.log[k].total)||0});d.setDate(d.getDate()+1)}
+  const max=Math.max(60,...days.map(x=>x.m));
+  const by={};for(const x of days){const e=state.log[x.k];if(e&&e.by)for(const[c,m]of Object.entries(e.by)) by[c]=(by[c]||0)+m}
+  const top=Object.entries(by).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  return `<section class="panel"><div class="grid2">
+    <div class="card timer">
+      <span class="mode" id="tmode">${T.mode==='focus'?'Focus block':'Break'}</span>
+      <div class="clock" id="tclock">${fmt(T.left)}</div>
+      <div class="row" style="justify-content:center">
+        <button class="btn primary" data-act="tstart">${T.running?'Pause':'Start'}</button>
+        <button class="btn" data-act="treset">Reset</button>
+        <button class="btn ghost" data-act="tswitch">${T.mode==='focus'?'Switch to break':'Switch to focus'}</button>
+      </div>
+      <div class="row" style="justify-content:center">
+        <div class="field"><label class="label" for="tcourse">Studying</label><select id="tcourse" data-f="tcourse">${list.map(c=>`<option${c.code===T.course?' selected':''}>${esc(c.code)}</option>`).join('')}<option${T.course==='Career prep'?' selected':''}>Career prep</option></select></div>
+        <div class="field"><label class="label" for="tlen">Focus min</label><input id="tlen" data-f="tlen" type="number" min="5" max="120" value="${T.len}" style="width:80px"></div>
+        <div class="field"><label class="label" for="tbrk">Break min</label><input id="tbrk" data-f="tbrk" type="number" min="1" max="60" value="${T.brk}" style="width:80px"></div>
+      </div>
+      <p class="muted" style="margin:0;font-size:.85rem">Finished focus blocks are logged automatically.</p>
+      <div class="row" style="justify-content:center;border-top:1px solid var(--line);padding-top:12px;width:100%">
+        <label class="label" for="manual">Log time studied elsewhere</label><input id="manual" type="number" min="1" max="600" placeholder="min" style="width:80px;border:1px solid var(--line);border-radius:6px;padding:5px 8px;background:var(--surface)"><button class="btn small" data-act="manual">Log</button>
+      </div>
+    </div>
+    <div class="card" style="display:grid;gap:14px;align-content:start">
+      <div class="row" style="justify-content:space-between"><h3>Last 7 days</h3><span class="mono muted">${Math.round(days.reduce((a,x)=>a+x.m,0)/6)/10} h</span></div>
+      <div class="week">${days.map(x=>`<div class="col${x.k===today()?' today':''}"><span class="n">${x.m||''}</span><div class="stem"><div class="fill" style="height:${Math.round(x.m/max*100)}%"></div></div><span class="d">${esc(x.label)}</span></div>`).join('')}</div>
+      <div class="label">Minutes by course this week</div>
+      ${top.length?`<ul class="list">${top.map(([c,m])=>`<li class="li"><span class="code">${esc(c)}</span><span style="flex:1"><span class="bar"><span style="width:${pct(m,top[0][1])}%"></span></span></span><span class="mono muted" style="font-size:.8rem">${m}m</span></li>`).join('')}</ul>`:`<p class="muted" style="margin:0">No study time logged this week yet. Start a focus block to log your first session.</p>`}
+    </div>
+  </div></section>`;
+}
+const fmt=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+function tick(){
+  T.left=Math.max(0,Math.round((T.end-Date.now())/1000));
+  const el=document.getElementById('tclock'); if(el) el.textContent=fmt(T.left);
+  document.title=T.running?fmt(T.left)+' · CSE Flight Deck':'CSE Flight Deck';
+  if(T.left<=0){
+    clearInterval(T.iv);T.running=false;beep();
+    if(T.mode==='focus'){addMinutes(T.len,T.course);T.mode='break';T.left=T.brk*60}else{T.mode='focus';T.left=T.len*60}
+    document.title='CSE Flight Deck'; if(ui.tab==='timer') render();
+  }
+}
+let actx=null;
+function beep(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=880;g.gain.setValueAtTime(.15,actx.currentTime);g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+.8);o.connect(g).connect(actx.destination);o.start();o.stop(actx.currentTime+.8)}catch(e){}}
+
+/* import parser */
+function parsePlan(text){
+  const words={first:1,second:2,third:3,fourth:4,fifth:5,freshman:1,sophomore:2,junior:3,senior:4};
+  const out=[]; let year=1, term='Fall', lastTermIdx=-1, yearSet=false;
+  for(let line of text.split(/\r?\n/)){
+    line=line.replace(/ /g,' ').replace(/\s+/g,' ').trim(); if(!line) continue;
+    let m=line.match(/^(first|second|third|fourth|fifth|freshman|sophomore|junior|senior)\b[^0-9]*\byear\b/i)||line.match(/^year\s*(\d)\b/i);
+    if(m&&line.length<40){year=/\d/.test(m[1])?+m[1]:words[m[1].toLowerCase()];yearSet=true;lastTermIdx=-1;continue}
+    m=line.match(/^(fall|spring|summer)\b(\s+(semester|term))?(\s+hours)?$/i);
+    if(m){const t=m[1][0].toUpperCase()+m[1].slice(1).toLowerCase();const idx=TERMS.indexOf(t);if(!yearSet&&idx<=lastTermIdx&&out.length) year++;yearSet=false;lastTermIdx=idx;term=t;continue}
+    if(/^(term|total|semester|year)?\s*(credit\s*)?hours\b/i.test(line)||/^total\b/i.test(line)||/^or\b/i.test(line)||/^hours$/i.test(line)) continue;
+    m=line.match(/^([A-Z]{2,4})\s?(\d{3}[A-Z]?)\b\s*(.*?)\s+(\d{1,2}(?:\.\d)?)(?:\s*-\s*\d{1,2})?$/);
+    if(m){out.push({year,term,code:m[1]+' '+m[2],title:m[3].replace(/[\s\-–:]+$/,'')||m[1]+' '+m[2],cr:+m[4]});continue}
+    m=line.match(/^(.{3,90}?)\s+(\d{1,2})$/);
+    if(m&&/elective|gen(eral)? ?ed|cardinal core|humanities|social|science|arts|diversity|co-?op|course/i.test(m[1])){out.push({year,term,code:/co-?op/i.test(m[1])?'CO-OP':'ELEC',title:m[1],cr:+m[2]});continue}
+    if(/co-?op/i.test(line)&&line.length<70&&!/^(complete|prior|before|students)/i.test(line)) out.push({year,term,code:'CO-OP',title:line,cr:0});
+  }
+  return out;
+}
+
+/* ---------- render & events ---------- */
+function render(){
+  document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===ui.tab)));
+  const sx=window.scrollX, sy=window.scrollY;
+  app.innerHTML=({overview:vOverview,plan:vPlan,study:vStudy,career:vCareer,timer:vTimer}[ui.tab]||vOverview)();
+  window.scrollTo(sx,sy);
+}
+function setTab(t){ui.tab=t;try{localStorage.setItem(LS+'-tab',t)}catch(e){}render();window.scrollTo(0,0)}
+document.getElementById('tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-tab]');if(b) setTab(b.dataset.tab)});
+const byId=id=>state.plan.find(c=>c.id===id);
+
+app.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]'); if(!el) return;
+  const a=el.dataset.act, id=el.dataset.id;
+  if(el.tagName==='INPUT') return; // checkboxes handled on change
+  switch(a){
+    case 'cycle':{const c=byId(id);c.status=STATUS[(STATUS.indexOf(c.status)+1)%3];if(c.status!=='done')c.grade='';persist();render();break}
+    case 'toggleEdit':ui.edit=!ui.edit;render();break;
+    case 'toggleImport':ui.importOpen=!ui.importOpen;render();break;
+    case 'add':state.plan.push({id:uid(),year:+el.dataset.y,term:el.dataset.t,code:'NEW 100',title:'New course',cr:3,status:'planned',grade:''});persist();render();break;
+    case 'addYear':{const y=Math.max(4,...state.plan.map(c=>c.year))+1;state.plan.push({id:uid(),year:y,term:'Fall',code:'NEW 100',title:'New course',cr:3,status:'planned',grade:''});persist();render();break}
+    case 'del':state.plan=state.plan.filter(c=>c.id!==id);persist();render();break;
+    case 'parse':ui.importText=document.getElementById('importText').value;ui.importPreview=parsePlan(ui.importText);render();break;
+    case 'applyImport':{const old=new Map(state.plan.map(c=>[c.code.toUpperCase(),c]));
+      state.plan=ui.importPreview.map(c=>{const o=old.get(c.code.toUpperCase());return {id:uid(),...c,status:o?o.status:'planned',grade:o?o.grade:''}});
+      state.starter=false;ui.importPreview=null;ui.importText='';ui.importOpen=false;persist();render();break}
+    case 'askReset':ui.confirmReset=true;render();break;
+    case 'cancelReset':ui.confirmReset=false;render();break;
+    case 'doReset':state.plan=starterPlan();state.starter=true;ui.confirmReset=false;persist();render();break;
+    case 'topic':state.topic=id;ui.reveal=false;ui.cardKey=null;persist();render();break;
+    case 'goTopic':state.topic=id;ui.reveal=false;ui.cardKey=null;persist();setTab('study');break;
+    case 'reveal':ui.reveal=true;render();break;
+    case 'skip':{const t=TOPIC_BY_ID[ui.cardKey.split(':')[0]];ui.cardKey=pickCard(t);ui.reveal=false;render();break}
+    case 'hit':case 'miss':{const k=ui.cardKey;state.cards[k]=a==='hit'?Math.min(4,(state.cards[k]||0)+1):0;persist();const t=TOPIC_BY_ID[k.split(':')[0]];ui.cardKey=pickCard(t);ui.reveal=false;render();break}
+    case 'track':state.career.track=id;persist();render();break;
+    case 'tstart':
+      if(T.running){clearInterval(T.iv);T.running=false;tick();T.running=false}
+      else{T.end=Date.now()+T.left*1000;T.running=true;T.iv=setInterval(tick,500);try{actx=actx||new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
+      render();break;
+    case 'treset':clearInterval(T.iv);T.running=false;T.left=(T.mode==='focus'?T.len:T.brk)*60;document.title='CSE Flight Deck';render();break;
+    case 'tswitch':clearInterval(T.iv);T.running=false;T.mode=T.mode==='focus'?'break':'focus';T.left=(T.mode==='focus'?T.len:T.brk)*60;render();break;
+    case 'manual':{const inp=document.getElementById('manual');const v=Math.round(+inp.value);if(v>0&&v<=600){addMinutes(v,T.course);render()}break}
+  }
+});
+app.addEventListener('change',e=>{
+  const el=e.target;
+  if(el.dataset.act==='check'){if(el.checked) state.career.checks[el.dataset.k]=true; else delete state.career.checks[el.dataset.k];persist();if(ui.tab!=='overview')render();else setTimeout(render,250);return}
+  if(el.dataset.act==='concept'){const arr=new Set(state.concepts[el.dataset.id]||[]);const i=+el.dataset.i;el.checked?arr.add(i):arr.delete(i);state.concepts[el.dataset.id]=[...arr];persist();render();return}
+  const f=el.dataset.f; if(!f) return;
+  if(f==='tcourse'){T.course=el.value;return}
+  if(f==='tlen'){T.len=Math.min(120,Math.max(5,+el.value||25));if(!T.running&&T.mode==='focus'){T.left=T.len*60;render()}return}
+  if(f==='tbrk'){T.brk=Math.min(60,Math.max(1,+el.value||5));if(!T.running&&T.mode==='break'){T.left=T.brk*60;render()}return}
+  const c=byId(el.dataset.id); if(!c) return;
+  if(f==='cr') c.cr=Math.max(0,Math.min(20,+el.value||0));
+  else if(f==='grade') c.grade=el.value;
+  else c[f]=el.value.slice(0,120);
+  persist(); if(f==='grade'||f==='cr') render();
+});
+
+render();
+initStore();
+})();
+</script>
+
+</body>
+</html>

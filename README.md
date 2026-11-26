@@ -1,0 +1,11 @@
+# CSE Flight Deck
+
+A study and career planner for the University of Louisville Computer Science & Engineering BS.
+
+- **Flight plan**: track every course (Planned, In progress, Done), with grades and GPA. Import the real flight plan by pasting it from the UofL catalog.
+- **Study**: concept checklists and flashcard drills for 18 core CS, math and physics topics.
+- **Career**: career paths, skills, portfolio projects, a year-by-year checklist and interview prep.
+- **Focus timer**: a study timer that logs time per course.
+
+Open `index.html` in any browser. Progress is saved in that browser (localStorage).
+On a phone, open the GitHub Pages link and use "Add to Home Screen" to install it like an app.
