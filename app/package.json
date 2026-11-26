@@ -4,7 +4,8 @@
   "private": true,
   "description": "Android wrapper for CSE Flight Deck (Capacitor).",
   "scripts": {
-    "copy-web": "node -e \"const fs=require('fs');fs.rmSync('www',{recursive:true,force:true});fs.mkdirSync('www/icons',{recursive:true});for(const f of ['index.html','manifest.webmanifest'])fs.copyFileSync('../'+f,'www/'+f);for(const f of fs.readdirSync('../icons'))fs.copyFileSync('../icons/'+f,'www/icons/'+f);\""
+    "copy-web": "node -e \"const fs=require('fs');fs.rmSync('www',{recursive:true,force:true});fs.mkdirSync('www',{recursive:true});for(const f of ['index.html','manifest.webmanifest'])fs.copyFileSync('../'+f,'www/'+f);fs.cpSync('../icons','www/icons',{recursive:true});fs.cpSync('../vendor','www/vendor',{recursive:true});\"",
+    "location-permission": "node -e \"const fs=require('fs');const p='android/app/src/main/AndroidManifest.xml';let x=fs.readFileSync(p,'utf8');if(!x.includes('ACCESS_FINE_LOCATION')){x=x.replace('</manifest>','    <uses-permission android:name=\\\"android.permission.ACCESS_COARSE_LOCATION\\\" />\\n    <uses-permission android:name=\\\"android.permission.ACCESS_FINE_LOCATION\\\" />\\n    <uses-feature android:name=\\\"android.hardware.location.gps\\\" android:required=\\\"false\\\" />\\n</manifest>');fs.writeFileSync(p,x)}console.log(x.match(/uses-permission[^>]*/g).join('\\n'))\""
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",

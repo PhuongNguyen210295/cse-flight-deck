@@ -6,6 +6,7 @@ A study and career planner for the University of Louisville Computer Science & E
 - **Study**: concept checklists and flashcard drills for 18 core CS, math and physics topics.
 - **Career**: career paths, skills, portfolio projects, a year-by-year checklist and interview prep.
 - **Schedule**: import your weekly classes and rooms per semester (paste from ULink or upload an .ics file), see your next class with a map link.
+- **Campus map**: Belknap Campus map with live GPS guidance (distance, direction arrow, arrival alert) to the building for each class.
 - **Focus timer**: a study timer that logs time per course.
 
 ## Install on Android

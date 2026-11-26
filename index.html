@@ -60,7 +60,39 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--line);
 .save{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);display:flex;align-items:center;gap:6px}
 .save i{width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block}
 .save.ok i{background:var(--done)}.save.err i{background:var(--warn)}
-@media (max-width:700px){header.strip{position:static}.brand .tag{display:none}.strip .wrap{gap:8px 12px}}
+@media (max-width:700px){header.strip{position:static}.brand .tag{display:none}.strip .wrap{gap:8px 12px}
+  nav.tabs{flex-wrap:nowrap;overflow-x:auto;width:100%;scrollbar-width:none}nav.tabs button{white-space:nowrap;flex:none}}
+
+/* campus map */
+#mapHost{height:min(62vh,560px);min-height:320px;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:var(--sunk)}
+#mapHost .leaflet-container,#mapHost.leaflet-container{font-family:var(--f-body);background:var(--sunk)}
+.leaflet-container img{max-width:none!important}
+#mapHost.dark-tiles .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.9)}
+#mapHost:not(.zoomed) .blabel{display:none}
+.blabel{background:var(--surface);color:var(--ink);border:1px solid var(--line);font-size:.72rem;padding:1px 5px;box-shadow:none}
+.blabel::before{display:none}
+.dlabel{background:var(--accent);color:var(--surface);border:0;font-weight:600;font-size:.8rem}
+.dlabel::before{border-top-color:var(--accent)!important}
+.leaflet-popup-content{margin:10px 12px;font-family:var(--f-body)}
+.leaflet-popup-content button{margin-top:6px}
+.guide{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center}
+.arrow{width:64px;height:64px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center}
+.arrow svg{width:38px;height:38px;transition:transform .25s ease}
+.arrow.idle{background:var(--sunk)}
+.arrow.idle svg{opacity:.35}
+.arrived{background:var(--done-soft);color:var(--done);border-radius:6px;padding:8px 12px;font-weight:600}
+.gps{font-family:var(--f-mono);font-size:.78rem;color:var(--muted)}
+.gps.on{color:var(--done)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;font-size:.88rem}
+.chips button:hover{border-color:var(--accent)}
+.dir-list{columns:2 240px;column-gap:24px;margin:8px 0 0;padding:0;list-style:none}
+.dir-list li{break-inside:avoid;padding:2px 0}
+.dir-list button{background:none;border:0;padding:2px 0;text-align:left;color:var(--ink)}
+.dir-list button:hover{color:var(--accent)}
+.dir-list .mono{font-size:.75rem;color:var(--muted);margin-left:6px}
+details summary{cursor:pointer;font-weight:600}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;font:inherit;cursor:pointer}
 
 main{padding-block:24px 64px}
 section.panel{display:grid;grid-template-columns:minmax(0,1fr);gap:24px}
@@ -222,6 +254,7 @@ a{color:var(--accent)}
     <nav class="tabs" role="tablist" id="tabs">
       <button data-tab="overview" role="tab">Overview</button>
       <button data-tab="schedule" role="tab">Schedule</button>
+      <button data-tab="map" role="tab">Campus map</button>
       <button data-tab="plan" role="tab">Flight plan</button>
       <button data-tab="study" role="tab">Study</button>
       <button data-tab="career" role="tab">Career</button>
@@ -347,7 +380,7 @@ const STARTER=[
 /* ---------- state ---------- */
 const uid=()=>Math.random().toString(36).slice(2,10);
 function starterPlan(){return STARTER.map(([y,t,c,ti,cr])=>({id:uid(),year:y,term:t,code:c,title:ti,cr,status:'planned',grade:''}))}
-function freshState(){return {v:1,starter:true,plan:starterPlan(),concepts:{},cards:{},career:{track:'swe',checks:{}},log:{},topic:null,schedule:{active:null,terms:{}}}}
+function freshState(){return {v:1,starter:true,plan:starterPlan(),concepts:{},cards:{},career:{track:'swe',checks:{}},log:{},topic:null,schedule:{active:null,terms:{}},mapDest:null,mapPins:{}}}
 function normClass(c){return {id:String(c.id||uid()),code:String(c.code||'').slice(0,20),title:String(c.title||'').slice(0,120),kind:String(c.kind||'').slice(0,30),
   days:Array.isArray(c.days)?[...new Set(c.days.map(Number).filter(d=>d>=0&&d<=6))].sort((a,b)=>a-b):[],
   start:/^\d{2}:\d{2}$/.test(c.start)?c.start:'',end:/^\d{2}:\d{2}$/.test(c.end)?c.end:'',room:String(c.room||'').slice(0,120),instructor:String(c.instructor||'').slice(0,80)}}
@@ -361,7 +394,9 @@ function normalize(s){
   return {v:1,starter:!!s.starter,plan:Array.isArray(s.plan)?s.plan.filter(c=>c&&c.id).map(c=>({id:String(c.id),year:+c.year||1,term:TERMS.includes(c.term)?c.term:'Fall',code:String(c.code||''),title:String(c.title||''),cr:Math.max(0,+c.cr||0),status:STATUS.includes(c.status)?c.status:'planned',grade:GRADES[c.grade]!==undefined?c.grade:''})):f.plan,
     concepts:s.concepts&&typeof s.concepts==='object'?s.concepts:{},cards:s.cards&&typeof s.cards==='object'?s.cards:{},
     career:{track:(s.career&&TRACKS.some(t=>t.id===s.career.track))?s.career.track:'swe',checks:(s.career&&s.career.checks)||{}},
-    log:s.log&&typeof s.log==='object'?s.log:{},topic:s.topic||null,schedule:normSchedule(s.schedule)};
+    log:s.log&&typeof s.log==='object'?s.log:{},topic:s.topic||null,schedule:normSchedule(s.schedule),
+    mapDest:typeof s.mapDest==='string'?s.mapDest:null,
+    mapPins:s.mapPins&&typeof s.mapPins==='object'?Object.fromEntries(Object.entries(s.mapPins).filter(([k,v])=>Array.isArray(v)&&v.length===2&&isFinite(v[0])&&isFinite(v[1]))):{}};
 }
 const LS='cse-flight-deck-v1';
 let state=freshState();
@@ -827,7 +862,8 @@ function nextUp(classes){
   }
   return null;
 }
-function roomLine(c){const u=mapUrl(c.room);return `<div class="nx-room">${c.room?`<span>📍 ${esc(c.room)}</span>`:'<span class="muted">No room listed</span>'}${u?`<a href="${u}" target="_blank" rel="noopener">Open in Maps</a>`:''}${c.instructor?`<span class="muted">${esc(c.instructor)}</span>`:''}</div>`}
+function roomLine(c){const b=!IS_ARTIFACT&&matchBuilding(c.room);const u=mapUrl(c.room);
+  return `<div class="nx-room">${c.room?`<span>📍 ${esc(c.room)}</span>`:'<span class="muted">No room listed</span>'}${b?`<button class="btn small primary" data-act="m-guide" data-b="${b.id}">Guide me there</button>`:(u?`<a href="${u}" target="_blank" rel="noopener">Open in Maps</a>`:'')}${c.instructor?`<span class="muted">${esc(c.instructor)}</span>`:''}</div>`}
 function nextClassCard(){
   const t=state.schedule.terms[state.schedule.active];if(!t||!t.classes.length) return '';
   const n=nextUp(t.classes);if(!n) return '';
@@ -911,8 +947,8 @@ function vSchedule(){
     <div class="daychips">${cols.map(d=>`<button data-act="s-day" data-d="${d}" aria-pressed="${d===U.day}">${DAYN[d]}${d===today?' ·':''}</button>`).join('')}</div>
     <div class="wk" style="--n:${cols.length}">${cols.map(d=>{const list=T.classes.filter(c=>c.days.includes(d)).sort((a,b)=>toMin(a.start)-toMin(b.start));
       return `<div class="wk-col${d===today?' today':''}${d===U.day?' sel':''}"><h4><span>${DAYFULL[d]}</span>${d===today?'<span class="label" style="color:var(--accent)">Today</span>':''}</h4>
-      ${list.length?list.map(c=>{const live=d===today&&toMin(c.start)<=nowMin&&nowMin<toMin(c.end);const u=mapUrl(c.room);
-        return `<div class="blk${live?' live':''}"><span class="tm">${fmt12(c.start)} – ${fmt12(c.end)}</span><span><span class="pill" style="color:${classColor(c.code)}">${esc(c.code)}</span> ${c.kind?`<span class="muted" style="font-size:.8rem">${esc(c.kind)}</span>`:''}</span>${c.title?`<span style="font-size:.88rem">${esc(c.title)}</span>`:''}<span class="rm">${c.room?(u?`<a href="${u}" target="_blank" rel="noopener">${esc(c.room)}</a>`:esc(c.room)):'No room listed'}</span></div>`}).join(''):'<span class="muted" style="font-size:.85rem">No classes</span>'}</div>`}).join('')}</div></div>`;
+      ${list.length?list.map(c=>{const live=d===today&&toMin(c.start)<=nowMin&&nowMin<toMin(c.end);const u=mapUrl(c.room);const b=!IS_ARTIFACT&&matchBuilding(c.room);
+        return `<div class="blk${live?' live':''}"><span class="tm">${fmt12(c.start)} – ${fmt12(c.end)}</span><span><span class="pill" style="color:${classColor(c.code)}">${esc(c.code)}</span> ${c.kind?`<span class="muted" style="font-size:.8rem">${esc(c.kind)}</span>`:''}</span>${c.title?`<span style="font-size:.88rem">${esc(c.title)}</span>`:''}<span class="rm">${c.room?(b?`<button class="linkbtn" data-act="m-guide" data-b="${b.id}">${esc(c.room)}</button>`:(u?`<a href="${u}" target="_blank" rel="noopener">${esc(c.room)}</a>`:esc(c.room))):'No room listed'}</span></div>`}).join(''):'<span class="muted" style="font-size:.85rem">No classes</span>'}</div>`}).join('')}</div></div>`;
   h+=`<div class="card"><div class="row" style="justify-content:space-between;margin-bottom:4px"><h3>All classes · ${esc(T.label)}</h3></div>
     <div>${T.classes.slice().sort((a,b)=>a.code.localeCompare(b.code)||toMin(a.start)-toMin(b.start)).map(c=>`<div class="cls-row"><div style="display:grid;gap:3px;min-width:0"><div><span class="pill" style="color:${classColor(c.code)}">${esc(c.code)}</span> <b>${esc(c.title||'')}</b> ${c.kind?`<span class="muted">· ${esc(c.kind)}</span>`:''}</div>
       <div class="cls-meta"><span class="mono">${daysLabel(c.days)} ${fmt12(c.start)}–${fmt12(c.end)}</span>${c.room?`<span>📍 ${esc(c.room)}</span>`:''}${c.instructor?`<span>${esc(c.instructor)}</span>`:''}</div></div>
@@ -967,14 +1003,315 @@ function pickTarget(P){
   return state.schedule.active||'new';
 }
 
+/* ---------- campus map & GPS guidance ---------- */
+/* Belknap Campus buildings: names and grid squares from the UofL Belknap Campus Building Index; coordinates from OpenStreetMap building outlines. */
+const BLD=[
+ ['acad','Belknap Academic Building','H6','acad',38.215491,-85.757502,['academic building','belknap academic','bab']],
+ ['bingham','Bingham Humanities Building','G6','acad',38.216615,-85.758710,['bingham','humanities building']],
+ ['law','Brandeis School of Law (Wilson Wyatt Hall)','F5','acad',38.215792,-85.761062,['brandeis','wilson wyatt','school of law','law school']],
+ ['brigman','Brigman Hall','E6','acad',38.214488,-85.761291,['brigman']],
+ ['chem','Chemistry Building','G7','acad',38.214032,-85.758024,['chemistry']],
+ ['business','College of Business (Frazier Hall)','G4','acad',38.219050,-85.760294,['college of business','frazier hall','business building']],
+ ['educ','College of Education & Human Development','I4','acad',38.219299,-85.757398,['college of education','porter building','cehd','education building']],
+ ['conn','Conn Center','F7','acad',38.212842,-85.759167,['conn center']],
+ ['davidson','Davidson Hall','H5','acad',38.218174,-85.758574,['davidson']],
+ ['dougherty','Dougherty Hall','E6','acad',38.213929,-85.761395,['dougherty']],
+ ['duthie','Duthie Center for Engineering','E7','acad',38.212647,-85.760850,['duthie']],
+ ['essr','Engineering Student Success & Research Building','F7','acad',38.212345,-85.759410,['student success','essr','engineering student success']],
+ ['ernst','Ernst Hall','F7','acad',38.213085,-85.759544,['ernst']],
+ ['ford','Ford Hall','F6','acad',38.216114,-85.760176,['ford hall']],
+ ['gardiner','Gardiner Hall','G6','acad',38.216000,-85.759727,['gardiner']],
+ ['gottschalk','Gottschalk Hall','G6','acad',38.216026,-85.759015,['gottschalk']],
+ ['jouett','Jouett Hall','F5','acad',38.216120,-85.760639,['jouett']],
+ ['lifesci','Life Sciences Building','G5','acad',38.217428,-85.759240,['life sciences','life science']],
+ ['lutz','Lutz Hall','G7','acad',38.214992,-85.758214,['lutz']],
+ ['mccandless','McCandless Hall','E6','acad',38.214568,-85.761831,['mccandless']],
+ ['mitc','Miller Information Technology Center','F7','acad',38.214344,-85.758743,['miller it','miller information','mitc']],
+ ['natsci','Natural Sciences Building','F7','acad',38.214006,-85.759824,['natural sciences','natural science','nat sci','natsci']],
+ ['oppenheimer','Oppenheimer Hall','F5','acad',38.216205,-85.761433,['oppenheimer']],
+ ['patterson','Patterson Hall','E6','acad',38.214187,-85.761727,['patterson hall','patterson']],
+ ['sackett','Sackett Hall','E7','acad',38.213218,-85.761460,['sackett']],
+ ['schneider','Schneider Hall','G6','acad',38.215308,-85.759072,['schneider']],
+ ['music','School of Music','H4','acad',38.219580,-85.758700,['school of music','music building']],
+ ['shumaker','Shumaker Research Building','H6','acad',38.216237,-85.757816,['shumaker','belknap research','research building']],
+ ['speed','J.B. Speed School of Engineering','F7','acad',38.213122,-85.760798,['jb speed','j b speed','speed school','speed building','speed scientific','speed sci']],
+ ['strickler','Strickler Hall','G5','acad',38.218208,-85.759477,['strickler']],
+ ['studioarts','Studio Arts / HPES Building / Thrust Theatre','H8','acad',38.214315,-85.755817,['studio arts','hpes','thrust theatre','thrust theater']],
+ ['urban','Urban & Public Affairs','G2','acad',38.221990,-85.763894,['urban and economic','urban & public affairs','urban affairs','urban and public']],
+ ['vogt','Vogt (Henry) Building','E7','acad',38.213400,-85.761818,['vogt']],
+ ['wsspeed','W.S. Speed Hall','E7','acad',38.212960,-85.760152,['ws speed','w s speed','speed hall']],
+ ['planetarium','Rauch Planetarium & Gheens Science Hall','H4','acad',38.218777,-85.759199,['planetarium','rauch','gheens']],
+ ['speedart','Speed Art Museum','F4','life',38.217849,-85.760859,['speed art','speed museum']],
+ ['ekstrom','Ekstrom Library','G5','life',38.216872,-85.760401,['ekstrom','library']],
+ ['sac','Swain Student Activities Center (SAC)','J6','life',38.217621,-85.755681,['student activities','swain','sac']],
+ ['src','Student Recreation Center','F4','life',38.218440,-85.764051,['student rec','recreation center','src']],
+ ['baptist','Baptist Campus Center','H5','life',38.217809,-85.757850,['baptist campus']],
+ ['interfaith','Interfaith Center','H5','life',38.217396,-85.757902,['interfaith']],
+ ['redbarn','Red Barn','I5','life',38.217931,-85.756320,['red barn']],
+ ['uclub','University Club & Alumni Center','I5','life',38.218718,-85.756049,['university club','alumni center']],
+ ['northinfo','North Information Center','H5','life',38.218798,-85.758106,['north information','north info']],
+ ['westinfo','West Information Center','F6','life',38.214647,-85.760876,['west information','west info']],
+ ['playhouse','The Playhouse','G4','life',38.219981,-85.760807,['playhouse']],
+ ['villegrill','The Ville Grill','G4','life',38.219086,-85.761945,['ville grill']],
+ ['floydgarage','Floyd Street Parking Garage','I7','life',38.216269,-85.755409,['floyd street garage','floyd st garage','floyd garage','parking garage']],
+ ['speedgarage','Speed Museum Parking Garage','F4','life',38.218282,-85.760302,['speed museum garage','speed garage']],
+ ['grawemeyer','Grawemeyer Hall','F6','admin',38.215049,-85.760148,['grawemeyer']],
+ ['houchens','Houchens Building (Admissions, Financial Aid)','H6','admin',38.215917,-85.756572,['houchens','admissions','financial aid']],
+ ['stevenson','Stevenson Hall','H6','admin',38.217128,-85.757990,['stevenson']],
+ ['annex','Administrative Annex','E6','admin',38.214172,-85.761052,['administrative annex','admin annex']],
+ ['service','Service Complex','H7','admin',38.215131,-85.756635,['service complex']],
+ ['urd','University Relations & Development','G8','admin',38.213650,-85.756716,['university relations']],
+ ['upd','University Planning, Design & Construction','G3','admin',38.221031,-85.763842,['university planning']],
+ ['archaeo','Archaeological Survey / Transportation Center','K5','admin',38.220063,-85.752837,['archaeological']],
+ ['epsc','Environmental Protection Services Center','L5','admin',38.220589,-85.752380,['environmental protection']],
+ ['bettie','Bettie Johnson Hall','G3','res',38.221485,-85.763167,['bettie johnson']],
+ ['ctowne','Cardinal Towne','G3','res',38.221058,-85.761977,['cardinal towne']],
+ ['kurz','Kurz Hall','F3','res',38.219532,-85.763639,['kurz']],
+ ['lvillehall','Louisville Hall','F4','res',38.218958,-85.762674,['louisville hall']],
+ ['minardi','Billy Minardi Hall','E4','res',38.217187,-85.763868,['minardi']],
+ ['upointe','University Pointe','F5','res',38.216861,-85.762863,['university pointe']],
+ ['utower','University Tower Apartments','G4','res',38.218942,-85.762193,['university tower']],
+ ['unitas','Unitas Tower','I4','res',38.219831,-85.757560,['unitas']],
+ ['nine','The Nine','J5','res',38.219525,-85.754784,['the nine']],
+ ['cpark','Community Park','F4','res',38.218017,-85.762811,['community park']],
+ ['dennycrum','Denny Crum Hall','I8','res',38.212430,-85.755011,['denny crum']],
+ ['natatorium','Ralph Wright Natatorium','H7','ath',38.215175,-85.755565,['natatorium']],
+ ['koetter','Koetter Center','I6','ath',38.217476,-85.753698,['koetter']],
+ ['ulmer','Ulmer Stadium','J6','ath',38.217637,-85.754000,['ulmer']],
+ ['fieldhockey','Field Hockey Complex','I8','ath',38.215221,-85.753429,['field hockey']],
+ ['tennis','Bass-Rudd Tennis Center','I9','ath',38.213505,-85.753390,['bass rudd','tennis center']],
+ ['trager','Trager Center','Inset','ath',38.208287,-85.758364,['trager']],
+ ['stadium','L&N Federal Credit Union Stadium','Inset','ath',38.205922,-85.758786,['cardinal stadium','l&n stadium','football stadium']],
+ ['jimpatterson','Jim Patterson Stadium','Inset','ath',38.205740,-85.762437,['patterson stadium','jim patterson']],
+ ['lynn','Lynn Soccer Stadium','Inset','ath',38.208854,-85.755162,['lynn soccer','soccer stadium']]
+].map(([id,name,grid,cat,lat,lon,aliases])=>({id,name,grid,cat,lat,lon,aliases}));
+const BLD_BY_ID=Object.fromEntries(BLD.map(b=>[b.id,b]));
+const CAT_NAME={acad:'Classrooms & research',life:'Campus life & libraries',admin:'Administration & services',res:'Residence halls',ath:'Athletics'};
+const CAT_TOKEN={acad:'--c3',life:'--c1',admin:'--c4',res:'--c5',ath:'--c6'};
+const IS_ARTIFACT=!!(window.claude&&typeof window.claude.use==='function');
+const compact=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+function matchBuilding(text){
+  if(!text) return null;
+  const low=' '+String(text).toLowerCase().replace(/[^a-z0-9& ]/g,' ').replace(/\s+/g,' ')+' ';const comp=compact(text);
+  let best=null,bl=0;
+  for(const b of BLD) for(const a of b.aliases.concat([b.name])){
+    const ca=compact(a);if(!ca) continue;
+    const hit=ca.length<=4?low.includes(' '+a.toLowerCase()+' '):comp.includes(ca);
+    if(hit&&ca.length>bl){best=b;bl=ca.length}
+  }
+  return best;
+}
+const bpos=b=>state.mapPins[b.id]||[b.lat,b.lon];
+function distM(a,b){const R=6371000,r=Math.PI/180;const dLat=(b[0]-a[0])*r,dLon=(b[1]-a[1])*r;const x=Math.sin(dLat/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+function bearing(a,b){const r=Math.PI/180;const y=Math.sin((b[1]-a[1])*r)*Math.cos(b[0]*r);const x=Math.cos(a[0]*r)*Math.sin(b[0]*r)-Math.sin(a[0]*r)*Math.cos(b[0]*r)*Math.cos((b[1]-a[1])*r);return (Math.atan2(y,x)/r+360)%360}
+const DIRS=['north','northeast','east','southeast','south','southwest','west','northwest'];
+const dirName=br=>DIRS[Math.round(br/45)%8];
+function fmtDist(m){const ft=m*3.281;return ft<1000?Math.round(ft/10)*10+' ft':(m/1609.34).toFixed(m<16093?1:0)+' mi'}
+const M={map:null,me:null,watch:null,heading:null,headingSrc:'',arrivedFor:null,err:'',layers:{},follow:true,wake:null,lastOri:0,loading:null};
+const mapHost=document.createElement('div');mapHost.id='mapHost';mapHost.hidden=true;document.body.appendChild(mapHost);
+function cssVar(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()||'#888'}
+function loadLeaflet(){
+  if(window.L) return Promise.resolve();
+  if(M.loading) return M.loading;
+  const css=(href)=>new Promise(res=>{const l=document.createElement('link');l.rel='stylesheet';l.href=href;l.onload=res;l.onerror=res;document.head.appendChild(l)});
+  const js=(src)=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s)});
+  M.loading=Promise.all([css('vendor/leaflet/leaflet.css'),js('vendor/leaflet/leaflet.js').catch(()=>js('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'))]);
+  return M.loading;
+}
+function isDark(){const t=document.documentElement.dataset.theme;return t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches}
+function initMap(){
+  if(M.map||!window.L) return;
+  const L=window.L;
+  const map=L.map(mapHost,{zoomControl:true,attributionControl:true}).setView([38.2158,-85.7595],16);
+  mapHost.classList.toggle('dark-tiles',isDark());
+  const osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'}).addTo(map);
+  let fails=0;
+  osm.on('tileerror',()=>{ if(++fails===4){ map.removeLayer(osm);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,
+      attribution:'Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors'}).addTo(map).bringToBack(); } });
+  M.layers.b=L.layerGroup().addTo(map);
+  for(const b of BLD){
+    const col=cssVar(CAT_TOKEN[b.cat]);
+    const mk=L.circleMarker(bpos(b),{radius:b.cat==='acad'?7:5,color:col,weight:2,fillColor:col,fillOpacity:.55});
+    mk.bindPopup(`<b>${esc(b.name)}</b><br><span style="opacity:.7">Campus map grid ${esc(b.grid)}</span><br><button class="btn small primary" data-act="m-dest" data-b="${b.id}">Guide me here</button>`);
+    if(b.cat==='acad') mk.bindTooltip(esc(b.name.replace(/ \(.*\)$/,'')),{permanent:true,direction:'top',offset:[0,-6],className:'blabel'});
+    mk.addTo(M.layers.b);b.marker=mk;
+  }
+  const onZoom=()=>mapHost.classList.toggle('zoomed',map.getZoom()>=18);
+  map.on('zoomend',onZoom);onZoom();
+  map.on('dragstart',()=>{M.follow=false});
+  M.map=map;
+  drawDest();drawMe();
+}
+function drawDest(){
+  if(!M.map) return;const L=window.L;
+  if(M.layers.dest){M.map.removeLayer(M.layers.dest);M.layers.dest=null}
+  const b=BLD_BY_ID[state.mapDest];if(!b) return;
+  M.layers.dest=L.circleMarker(bpos(b),{radius:12,color:cssVar('--accent'),weight:3,fillColor:cssVar('--accent'),fillOpacity:.35}).bindTooltip(esc(b.name.replace(/ \(.*\)$/,'')),{permanent:true,direction:'top',offset:[0,-12],className:'dlabel'}).addTo(M.map);
+}
+function drawMe(){
+  if(!M.map||!M.me) return;const L=window.L;const p=[M.me.lat,M.me.lon];
+  if(!M.layers.acc){M.layers.acc=L.circle(p,{radius:M.me.acc,color:cssVar('--prog'),weight:1,fillOpacity:.12}).addTo(M.map);M.layers.me=L.circleMarker(p,{radius:8,color:'#fff',weight:3,fillColor:cssVar('--prog'),fillOpacity:1}).addTo(M.map)}
+  else{M.layers.acc.setLatLng(p).setRadius(M.me.acc);M.layers.me.setLatLng(p)}
+  const b=BLD_BY_ID[state.mapDest];
+  if(b){const line=[p,bpos(b)];if(M.layers.line)M.layers.line.setLatLngs(line);else M.layers.line=L.polyline(line,{color:cssVar('--accent'),weight:4,dashArray:'6 8',opacity:.85}).addTo(M.map)}
+  else if(M.layers.line){M.map.removeLayer(M.layers.line);M.layers.line=null}
+  if(M.follow) M.map.panTo(p,{animate:true});
+}
+function arrowSvg(){return `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3 L33 35 L20 27 L7 35 Z" fill="${cssVar('--accent')}"/></svg>`}
+function guideHTML(){
+  const b=BLD_BY_ID[state.mapDest];
+  const tracking=M.watch!==null;
+  const gps=M.err?`<span class="gps" style="color:var(--warn)">${esc(M.err)}</span>`:tracking?(M.me?`<span class="gps on">● GPS on · accurate to ±${Math.round(M.me.acc*3.281)} ft</span>`:'<span class="gps">Finding your location…</span>'):'<span class="gps">GPS is off</span>';
+  if(!b) return `<div class="guide"><div class="arrow idle">${arrowSvg()}</div><div style="display:grid;gap:4px"><b>Where to?</b><span class="muted" style="font-size:.9rem">Tap one of today's classes below, search for a building, or tap a dot on the map.</span>${gps}</div></div>
+    <div class="row" style="margin-top:10px"><button class="btn${tracking?'':' primary'}" data-act="m-track">${tracking?'Stop GPS':'Show my location'}</button></div>`;
+  const gmaps=`https://www.google.com/maps/dir/?api=1&destination=${bpos(b)[0]},${bpos(b)[1]}&travelmode=walking`;
+  return `<div class="guide"><div class="arrow${M.me?'':' idle'}" id="garrow">${arrowSvg()}</div>
+    <div style="display:grid;gap:3px;min-width:0"><span class="label">Guiding you to</span><b style="font-family:var(--f-display);font-size:1.2rem">${esc(b.name)}</b>
+      <span class="nx-when" id="gdist">${M.me?'':(tracking?'Waiting for GPS…':'Tap Start to begin')}</span><span class="muted" id="gnote" style="font-size:.85rem"></span>${gps}</div></div>
+    <div id="garrived"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn${tracking?'':' primary'}" data-act="m-track">${tracking?'Stop':'Start'} guidance</button>
+      <button class="btn" data-act="m-center">Show both</button>
+      <a class="btn" href="${gmaps}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">Walking route in Google Maps</a>
+      <button class="btn ghost small" data-act="m-clear">Clear</button>
+    </div>
+    <p class="muted" style="margin:8px 0 0;font-size:.8rem">Grid ${esc(b.grid)} on the printed campus map.${state.mapPins[b.id]?' Using the location you pinned. <button class="linkbtn" data-act="m-unpin">Reset pin</button>':(M.me?' Dot in the wrong spot? Stand at the entrance and <button class="linkbtn" data-act="m-pin">pin it here</button>.':'')}</p>`;
+}
+function refreshGuide(){const g=document.getElementById('guideBox');if(g) g.innerHTML=guideHTML();updateGuide()}
+function updateGuide(){
+  const b=BLD_BY_ID[state.mapDest];if(!b||!M.me) return;
+  const me=[M.me.lat,M.me.lon],to=bpos(b);
+  const d=distM(me,to),br=bearing(me,to);
+  const el=document.getElementById('gdist'),note=document.getElementById('gnote'),arrow=document.querySelector('#garrow svg'),arr=document.getElementById('garrived');
+  const arrived=d<=Math.max(25,Math.min(M.me.acc,45));
+  if(el) el.textContent=arrived?'You are here':`${fmtDist(d)} · head ${dirName(br)} · about ${Math.max(1,Math.round(d/80))} min walk`;
+  const rel=M.heading===null?br:br-M.heading;
+  if(arrow) arrow.style.transform=`rotate(${rel}deg)`;
+  if(note) note.textContent=M.heading===null?'Arrow points relative to north (the top of the map). Hold your phone flat to use its compass.':(M.headingSrc==='gps'?'Arrow follows the direction you are walking.':'Arrow follows your phone’s compass. Point where it points.');
+  if(d>5000&&note) note.textContent=`You are ${fmtDist(d)} from campus.`;
+  if(arr){arr.innerHTML=arrived?`<div class="arrived" style="margin-top:10px">You've arrived at ${esc(b.name)}.</div>`:''}
+  if(arrived&&M.arrivedFor!==b.id){M.arrivedFor=b.id;try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}
+}
+function onPos(p){
+  M.err='';const first=!M.me;
+  M.me={lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy||50};
+  if(typeof p.coords.heading==='number'&&!isNaN(p.coords.heading)&&(p.coords.speed||0)>0.8&&M.headingSrc!=='compass'){M.heading=p.coords.heading;M.headingSrc='gps'}
+  drawMe();
+  if(first){refreshGuide();fitBoth()} else updateGuide();
+}
+function onPosErr(e){
+  M.err=e.code===1?'Location is blocked. Allow location for this app in your phone settings, then tap Start again.':e.code===2?'No GPS signal yet. Step outside or near a window.':'Still looking for GPS…';
+  if(e.code===1) stopTracking(true);
+  refreshGuide();
+}
+function onOrient(e){
+  const now=Date.now();if(now-M.lastOri<120) return;M.lastOri=now;
+  let h=null;
+  if(typeof e.webkitCompassHeading==='number') h=e.webkitCompassHeading;
+  else if(e.absolute&&typeof e.alpha==='number') h=360-e.alpha;
+  if(h===null) return;
+  const ang=(screen.orientation&&screen.orientation.angle)||0;
+  M.heading=(h+ang+360)%360;M.headingSrc='compass';updateGuide();
+}
+function startTracking(){
+  if(M.watch!==null) return;
+  if(!navigator.geolocation){M.err='This device does not offer location.';refreshGuide();return}
+  M.err='';M.follow=true;
+  M.watch=navigator.geolocation.watchPosition(onPos,onPosErr,{enableHighAccuracy:true,maximumAge:3000,timeout:20000});
+  if('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute',onOrient);
+  else window.addEventListener('deviceorientation',onOrient);
+  try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(w=>{M.wake=w}).catch(()=>{})}catch(e){}
+  refreshGuide();
+}
+function stopTracking(keepErr){
+  if(M.watch!==null){navigator.geolocation.clearWatch(M.watch);M.watch=null}
+  window.removeEventListener('deviceorientationabsolute',onOrient);window.removeEventListener('deviceorientation',onOrient);
+  try{M.wake&&M.wake.release()}catch(e){}M.wake=null;
+  M.heading=null;M.headingSrc='';if(!keepErr)M.err='';
+}
+function fitBoth(){
+  if(!M.map) return;const b=BLD_BY_ID[state.mapDest];
+  const pts=[];if(M.me)pts.push([M.me.lat,M.me.lon]);if(b)pts.push(bpos(b));
+  if(pts.length===2&&distM(pts[0],pts[1])<5000) M.map.fitBounds(pts,{padding:[60,60],maxZoom:18});
+  else if(pts.length) M.map.setView(pts[pts.length-1],17);
+}
+function setDest(id){
+  if(!BLD_BY_ID[id]) return;
+  state.mapDest=id;M.arrivedFor=null;persist();
+  if(ui.tab!=='map'){setTab('map');return}
+  drawDest();drawMe();refreshGuide();fitBoth();
+  if(M.map) M.map.closePopup();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function todayClassChips(){
+  const t=state.schedule.terms[state.schedule.active];if(!t) return '';
+  const d=new Date().getDay(),mins=new Date().getHours()*60+new Date().getMinutes();
+  let list=t.classes.filter(c=>c.days.includes(d)&&toMin(c.end)>mins).sort((a,b)=>toMin(a.start)-toMin(b.start));
+  let label='Your classes today';
+  if(!list.length){const n=nextUp(t.classes);if(n){list=t.classes.filter(c=>c.days.includes((d+n.off)%7)).sort((a,b)=>toMin(a.start)-toMin(b.start));label=n.off===1?'Your classes tomorrow':'Your next class day: '+DAYFULL[(d+n.off)%7]}}
+  if(!list.length) return '';
+  return `<div style="display:grid;gap:6px"><span class="label">${label}</span><div class="chips">${list.map(c=>{const b=matchBuilding(c.room);
+    return b?`<button data-act="m-dest" data-b="${b.id}"><b class="mono" style="font-size:.8rem">${esc(c.code)}</b> ${fmt12(c.start)} · ${esc(b.name.replace(/ \(.*\)$/,''))}</button>`:`<button disabled title="Room not recognized: ${esc(c.room||'none')}" style="opacity:.6"><b class="mono" style="font-size:.8rem">${esc(c.code)}</b> ${fmt12(c.start)} · ${esc(c.room||'no room')}</button>`}).join('')}</div></div>`;
+}
+function vMap(){
+  if(IS_ARTIFACT){
+    return `<section class="panel"><div><h2>Campus map</h2><p class="muted" style="margin:2px 0 0">Live GPS guidance runs in the Android app and on the website, not inside Claude.</p></div>
+      <div class="note"><b>Open the app for live guidance.</b> Install the Android app from <a href="https://github.com/PhuongNguyen210295/cse-flight-deck/releases/latest" target="_blank" rel="noopener">GitHub releases</a> or open <a href="https://phuongnguyen210295.github.io/cse-flight-deck/" target="_blank" rel="noopener">the website</a>. Below, each building opens walking directions in Google Maps.</div>
+      ${dirList(true)}</section>`;
+  }
+  const q=ui.mapQ||'';
+  return `<section class="panel">
+    <div><h2>Campus map</h2><p class="muted" style="margin:2px 0 0">Live GPS guidance to the building for your class on Belknap Campus.</p></div>
+    <div class="card" id="guideBox">${guideHTML()}</div>
+    ${todayClassChips()}
+    <div style="display:grid;gap:6px"><label class="label" for="bsearch">Find a building</label><input id="bsearch" value="${esc(q)}" placeholder="Duthie, Ekstrom, Natural Sciences…" autocomplete="off" style="border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--surface)"><div class="chips" id="bresults">${searchResults(q)}</div></div>
+    <div id="mapSlot"></div>
+    <p class="muted" style="margin:-12px 0 0;font-size:.8rem">Blue: classrooms · Amber: campus life · Pink: administration · Purple: housing · Green: athletics. Zoom in to see building names.</p>
+    <details class="card"><summary>All buildings (${BLD.length})</summary>${dirList(false)}</details>
+  </section>`;
+}
+function searchResults(q){
+  q=compact(q||'');if(q.length<2) return '';
+  const hits=BLD.filter(b=>compact(b.name).includes(q)||b.aliases.some(a=>compact(a).includes(q))).slice(0,8);
+  return hits.length?hits.map(b=>`<button data-act="m-dest" data-b="${b.id}">${esc(b.name)} <span class="mono muted" style="font-size:.75rem">${esc(b.grid)}</span></button>`).join(''):'<span class="muted" style="font-size:.88rem">No building matches.</span>';
+}
+function dirList(external){
+  return Object.keys(CAT_NAME).map(cat=>`<div style="margin-top:12px"><div class="label">${CAT_NAME[cat]}</div><ul class="dir-list">${BLD.filter(b=>b.cat===cat).sort((a,b)=>a.name.localeCompare(b.name)).map(b=>external
+    ?`<li><a href="https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lon}&travelmode=walking" target="_blank" rel="noopener">${esc(b.name)}</a><span class="mono">${esc(b.grid)}</span></li>`
+    :`<li><button data-act="m-dest" data-b="${b.id}">${esc(b.name)}</button><span class="mono">${esc(b.grid)}</span></li>`).join('')}</ul></div>`).join('');
+}
+function mapClick(el){
+  const a=el.dataset.act,id=el.dataset.b;
+  switch(a){
+    case 'm-dest':setDest(id);break;
+    case 'm-guide':state.mapDest=id;M.arrivedFor=null;persist();setTab('map');startTracking();break;
+    case 'm-track':if(M.watch!==null){stopTracking();refreshGuide()}else startTracking();break;
+    case 'm-center':M.follow=true;fitBoth();break;
+    case 'm-clear':state.mapDest=null;persist();drawDest();drawMe();refreshGuide();break;
+    case 'm-pin':{const b=BLD_BY_ID[state.mapDest];if(b&&M.me){state.mapPins[b.id]=[M.me.lat,M.me.lon];persist();if(b.marker)b.marker.setLatLng(bpos(b));drawDest();drawMe();refreshGuide()}break}
+    case 'm-unpin':{const b=BLD_BY_ID[state.mapDest];if(b){delete state.mapPins[b.id];persist();if(b.marker)b.marker.setLatLng(bpos(b));drawDest();drawMe();refreshGuide()}break}
+  }
+}
+mapHost.addEventListener('click',e=>{const el=e.target.closest('[data-act^="m-"]');if(el){e.preventDefault();e.stopPropagation();mapClick(el)}});
+
 /* ---------- render & events ---------- */
 function render(){
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===ui.tab)));
   const sx=window.scrollX, sy=window.scrollY;
-  app.innerHTML=({overview:vOverview,schedule:vSchedule,plan:vPlan,study:vStudy,career:vCareer,timer:vTimer}[ui.tab]||vOverview)();
+  if(mapHost.parentNode!==document.body){document.body.appendChild(mapHost);mapHost.hidden=true}
+  app.innerHTML=({overview:vOverview,schedule:vSchedule,map:vMap,plan:vPlan,study:vStudy,career:vCareer,timer:vTimer}[ui.tab]||vOverview)();
+  const slot=document.getElementById('mapSlot');
+  if(slot){
+    slot.appendChild(mapHost);mapHost.hidden=false;
+    loadLeaflet().then(()=>{initMap();if(M.map){M.map.invalidateSize();drawDest();drawMe();if(state.mapDest&&!M.me)fitBoth()}})
+      .catch(()=>{mapHost.innerHTML='<p class="muted" style="padding:16px">The map could not load. Check your internet connection and reopen this tab.</p>'});
+    updateGuide();
+  }
   window.scrollTo(sx,sy);
 }
-function setTab(t){ui.tab=t;try{localStorage.setItem(LS+'-tab',t)}catch(e){}render();window.scrollTo(0,0)}
+function setTab(t){if(t!=='map'&&ui.tab==='map')stopTracking();ui.tab=t;try{localStorage.setItem(LS+'-tab',t)}catch(e){}render();window.scrollTo(0,0)}
 document.getElementById('tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-tab]');if(b) setTab(b.dataset.tab)});
 const byId=id=>state.plan.find(c=>c.id===id);
 
@@ -983,6 +1320,7 @@ app.addEventListener('click',e=>{
   const a=el.dataset.act, id=el.dataset.id;
   if(el.tagName==='INPUT') return; // checkboxes handled on change
   if(a.startsWith('s-')){schedClick(el);return}
+  if(a.startsWith('m-')){mapClick(el);return}
   switch(a){
     case 'cycle':{const c=byId(id);c.status=STATUS[(STATUS.indexOf(c.status)+1)%3];if(c.status!=='done')c.grade='';persist();render();break}
     case 'toggleEdit':ui.edit=!ui.edit;render();break;
@@ -1036,6 +1374,7 @@ app.addEventListener('change',e=>{
   persist(); if(f==='grade'||f==='cr') render();
 });
 
+app.addEventListener('input',e=>{if(e.target.id==='bsearch'){ui.mapQ=e.target.value;const r=document.getElementById('bresults');if(r)r.innerHTML=searchResults(ui.mapQ)}});
 render();
 initStore();
 setInterval(()=>{

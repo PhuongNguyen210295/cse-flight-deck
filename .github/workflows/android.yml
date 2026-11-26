@@ -3,7 +3,7 @@ name: Build Android app
 on:
   push:
     branches: [main]
-    paths: ['index.html', 'icons/**', 'app/**', '.github/workflows/android.yml']
+    paths: ['index.html', 'icons/**', 'vendor/**', 'app/**', '.github/workflows/android.yml']
   workflow_dispatch:
 
 permissions:
@@ -35,6 +35,9 @@ jobs:
 
       - name: Create the Android project
         run: npx cap add android
+
+      - name: Allow location (GPS) in the app
+        run: npm run location-permission
 
       - name: Generate app icon and splash screen
         continue-on-error: true
